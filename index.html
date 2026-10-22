@@ -1,0 +1,1719 @@
+<title>Le Carré magique</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Le carré magique en 3D : mathématiques, vérités cachées, histoire et ingénierie.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout : une nuit d'observatoire. Scène WebGL fixe en fond, récit en panneaux de verre sombre à gauche,
+   la scène occupe la droite ; sur téléphone, la scène passe au-dessus des panneaux. */
+:root {
+  color-scheme: dark;
+  --night: #07080d;
+  --night-2: #0d1019;
+  --panel: rgba(11, 13, 21, 0.78);
+  --panel-solid: #0e111b;
+  --line: rgba(227, 184, 102, 0.20);
+  --line-soft: rgba(239, 230, 210, 0.10);
+  --gold: #e3b866;
+  --gold-hi: #f7dfa4;
+  --gold-deep: #a8792f;
+  --ivory: #efe6d2;
+  --muted: #a39b8b;
+  --teal: #5cc4d1;
+  --ember: #e2734a;
+  --violet: #a996dc;
+  --f-display: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --f-body: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --s-hero: clamp(3.6rem, 9.5vw, 8.4rem);
+  --s-h2: clamp(2.2rem, 4.4vw, 3.5rem);
+  --s-body: 1.02rem;
+  --s-small: 0.86rem;
+  --s-label: 0.72rem;
+  --r-panel: 22px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--night); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--night);
+  color: var(--ivory);
+  font-family: var(--f-body);
+  font-size: var(--s-body);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--night); }
+
+/* ---------- Stage ---------- */
+#stage {
+  position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block;
+  touch-action: pan-y; cursor: grab;
+}
+#stage:active { cursor: grabbing; }
+.vignette {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 72% 45%, transparent 40%, rgba(7, 8, 13, 0.55) 100%),
+    linear-gradient(90deg, rgba(7, 8, 13, 0.82) 0%, rgba(7, 8, 13, 0.35) 38%, transparent 60%);
+}
+.no-webgl #stage { display: none; }
+.no-webgl .vignette {
+  background: radial-gradient(80% 60% at 75% 40%, rgba(227, 184, 102, 0.16), transparent 70%), var(--night);
+}
+
+/* ---------- Header ---------- */
+.top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 6;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: rgba(7, 8, 13, 0.8);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+.top-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 58px; max-width: 1440px; margin: 0 auto; }
+.brand { white-space: nowrap; flex-shrink: 0; font-family: var(--f-display); font-style: italic; font-weight: 600; font-size: 1.32rem; color: var(--gold); letter-spacing: 0.01em; pointer-events: auto; text-decoration: none; }
+.brand b { font-style: normal; color: var(--ivory); font-weight: 600; }
+.chap { font-family: var(--f-mono); font-size: var(--s-label); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); text-align: right; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chap em { color: var(--gold); font-style: normal; }
+.progress { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--line-soft); }
+.progress span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold-hi)); box-shadow: 0 0 12px rgba(247, 223, 164, 0.55); }
+
+/* ---------- Main flow ---------- */
+main {
+  position: relative; z-index: 2; pointer-events: none;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1440px; margin: 0 auto; }
+.act { min-height: 112svh; display: flex; align-items: center; padding-block: 16svh; }
+.act.tall { min-height: 130svh; }
+.panel {
+  pointer-events: auto;
+  width: min(560px, 100%); min-width: 0;
+  margin-left: clamp(0px, 3vw, 56px);
+  background: var(--panel);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  backdrop-filter: blur(16px) saturate(1.15);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  padding: clamp(22px, 3vw, 36px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(247, 223, 164, 0.06);
+  display: grid; gap: 16px;
+}
+.panel > * { margin: 0; min-width: 0; }
+
+.eyebrow { font-family: var(--f-mono); font-size: var(--s-label); letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
+.eyebrow span { color: var(--muted); }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; text-wrap: balance; color: var(--ivory); }
+h2 { font-size: var(--s-h2); line-height: 1.02; letter-spacing: -0.005em; }
+h2 i { color: var(--gold); font-weight: 500; }
+h3 { font-size: 1.45rem; line-height: 1.15; }
+p { color: rgba(239, 230, 210, 0.86); }
+p strong, li strong { color: var(--ivory); font-weight: 600; }
+.small { font-size: var(--s-small); color: var(--muted); line-height: 1.6; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.gold { color: var(--gold); }
+.formula {
+  font-family: var(--f-display); font-style: italic; font-size: 1.7rem; color: var(--gold-hi);
+  text-align: center; padding: 10px 0; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+}
+
+/* ---------- Hero ---------- */
+.hero { min-height: 92svh; align-items: center; padding-block: 120px 12svh; }
+.hero .panel { background: transparent; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding-left: 0; width: min(640px, 100%); gap: 22px; }
+.hero h1 { font-size: var(--s-hero); line-height: 0.86; letter-spacing: -0.02em; margin: 0; }
+.hero h1 .sub { display: block; font-style: italic; font-weight: 500; font-size: 0.42em; line-height: 1.1; color: var(--gold); letter-spacing: 0; margin-top: 0.28em; }
+.lead { font-size: 1.12rem; line-height: 1.7; max-width: 34em; color: rgba(239, 230, 210, 0.9); }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.facts div { padding: 14px 14px 12px 0; display: grid; gap: 2px; }
+.facts div + div { padding-left: 16px; border-left: 1px solid var(--line-soft); }
+.facts b { font-family: var(--f-display); font-size: 2.1rem; font-weight: 600; line-height: 1; color: var(--gold-hi); font-variant-numeric: lining-nums; }
+.facts span { font-size: var(--s-small); color: var(--muted); line-height: 1.35; }
+.hint { font-family: var(--f-mono); font-size: var(--s-label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+.hint::before { content: ""; width: 34px; height: 1px; background: var(--gold); }
+
+/* ---------- Tags ---------- */
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag {
+  display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 0.66rem; letter-spacing: 0.12em;
+  text-transform: uppercase; padding: 4px 9px 3px; border-radius: 999px; border: 1px solid currentColor; line-height: 1.4;
+}
+.tag::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.t-demo { color: var(--gold); }
+.t-calc { color: var(--ivory); }
+.t-etab { color: var(--teal); }
+.t-rech { color: #e9c46a; }
+.t-spec { color: var(--ember); }
+.t-symb { color: var(--violet); }
+.t-ouv { color: var(--muted); }
+
+/* ---------- Controls ---------- */
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button, .chip {
+  font: 500 0.84rem/1 var(--f-body); color: var(--ivory); background: rgba(239, 230, 210, 0.04);
+  border: 1px solid var(--line); border-radius: 999px; padding: 10px 15px; cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+}
+button:hover, .chip:hover { border-color: var(--gold); background: rgba(227, 184, 102, 0.08); }
+button:active { transform: translateY(1px); }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+button[aria-pressed="true"], .chip[aria-pressed="true"] { background: var(--gold); color: var(--night); border-color: var(--gold); }
+button.primary { background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: var(--night); border-color: var(--gold); font-weight: 700; }
+.readout {
+  font-family: var(--f-mono); font-size: 0.86rem; color: var(--ivory); background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px 14px; font-variant-numeric: tabular-nums; line-height: 1.6;
+}
+.readout b { color: var(--gold-hi); font-weight: 500; }
+.readout .bad { color: var(--ember); }
+.readout .ok { color: var(--teal); }
+input[type="range"] { width: 100%; accent-color: var(--gold); }
+.range-label { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: var(--s-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Proof steps ---------- */
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; counter-reset: st; }
+.steps li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; counter-increment: st; color: rgba(239, 230, 210, 0.86); }
+.steps li::before {
+  content: counter(st); font-family: var(--f-display); font-weight: 600; font-size: 1.3rem; color: var(--night);
+  background: var(--gold); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; line-height: 1;
+}
+
+/* ---------- Siamese mini grid ---------- */
+.sq { display: grid; gap: 4px; width: min(300px, 100%); margin: 2px auto; }
+.sq div {
+  aspect-ratio: 1; display: grid; place-items: center; border-radius: 8px; font-family: var(--f-mono); font-size: 0.95rem;
+  background: rgba(239, 230, 210, 0.04); border: 1px solid var(--line-soft); color: var(--ivory); transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+.sq div.b0 { background: rgba(92, 196, 209, 0.16); }
+.sq div.b1 { background: rgba(227, 184, 102, 0.16); }
+.sq div.b2 { background: rgba(169, 150, 220, 0.18); }
+.sq div.b3 { background: rgba(226, 115, 74, 0.16); }
+.sq div.b4 { background: rgba(239, 230, 210, 0.12); }
+.sq div.now { background: var(--gold); color: var(--night); border-color: var(--gold-hi); }
+.sq div.empty { color: transparent; }
+
+/* ---------- Counting table ---------- */
+.count { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.count div { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 2px 14px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); align-items: baseline; }
+.count .n { font-family: var(--f-mono); color: var(--muted); font-size: 0.82rem; grid-row: span 2; }
+.count .v { font-family: var(--f-mono); font-size: clamp(0.92rem, 2.4vw, 1.18rem); color: var(--gold-hi); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.count .w { font-size: var(--s-small); color: var(--muted); }
+
+/* ---------- Mermin game ---------- */
+.game { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 64px; gap: 8px; align-items: stretch; }
+.cell {
+  border-radius: 14px; padding: 12px 6px; border: 1px solid var(--line); background: rgba(227, 184, 102, 0.12);
+  display: grid; gap: 4px; place-items: center; text-align: center; cursor: pointer; color: var(--ivory);
+}
+.cell .op { font-family: var(--f-mono); font-size: 0.8rem; color: var(--muted); }
+.cell .val { font-family: var(--f-display); font-size: 1.9rem; font-weight: 600; line-height: 1; color: var(--gold-hi); }
+.cell[data-v="-1"] { background: rgba(226, 115, 74, 0.16); border-color: rgba(226, 115, 74, 0.5); }
+.cell[data-v="-1"] .val { color: var(--ember); }
+.rule { font-family: var(--f-mono); font-size: 0.72rem; display: grid; place-items: center; border-radius: 10px; border: 1px dashed var(--line-soft); color: var(--muted); text-align: center; line-height: 1.25; padding: 4px; }
+.rule.ok { color: var(--teal); border-color: rgba(92, 196, 209, 0.5); }
+.rule.bad { color: var(--ember); border-color: rgba(226, 115, 74, 0.6); }
+
+/* ---------- Timeline ---------- */
+.tl { list-style: none; margin: 0; padding: 0 0 0 18px; display: grid; gap: 14px; border-left: 1px solid var(--line); }
+.tl li { position: relative; display: grid; gap: 2px; }
+.tl li::before { content: ""; position: absolute; left: -23px; top: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--night); border: 1px solid var(--gold); }
+.tl li.key::before { background: var(--gold); box-shadow: 0 0 10px rgba(247, 223, 164, 0.7); }
+.tl .d { font-family: var(--f-mono); font-size: 0.74rem; letter-spacing: 0.12em; color: var(--gold); text-transform: uppercase; }
+.tl .t { font-size: 0.95rem; color: rgba(239, 230, 210, 0.88); line-height: 1.5; }
+.tl .p { color: var(--muted); }
+
+/* ---------- Cards ---------- */
+.cards { display: grid; gap: 10px; }
+.card { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; background: rgba(239, 230, 210, 0.035); border: 1px solid var(--line-soft); }
+.card h3 { font-size: 1.22rem; }
+.card p { font-size: 0.92rem; line-height: 1.55; }
+.card .tags { margin-top: 2px; }
+.callout { border-left: 2px solid var(--gold); padding: 4px 0 4px 16px; font-family: var(--f-display); font-style: italic; font-size: 1.32rem; line-height: 1.35; color: var(--gold-hi); }
+
+/* ---------- Loads grid ---------- */
+.loads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 66px; gap: 5px; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.loads .c { aspect-ratio: 1.15; display: grid; place-items: center; border-radius: 8px; font-size: 0.86rem; color: var(--night); transition: background 0.2s; }
+.loads .s { display: grid; align-content: center; justify-items: start; font-size: 0.74rem; line-height: 1.25; color: var(--ivory); padding-left: 4px; }
+.loads .s i { font-style: normal; color: var(--muted); }
+.loads .s.bad i { color: var(--ember); }
+.loads .cs { justify-items: center; padding-left: 0; text-align: center; }
+
+/* ---------- Lessons ---------- */
+.lessons { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: ls; }
+.lessons li { counter-increment: ls; display: grid; grid-template-columns: 40px 1fr; gap: 12px; }
+.lessons li::before { content: counter(ls); font-family: var(--f-display); font-size: 2rem; line-height: 1; color: var(--gold); font-weight: 600; }
+.lessons b { display: block; font-family: var(--f-display); font-size: 1.28rem; font-weight: 600; color: var(--ivory); line-height: 1.2; margin-bottom: 2px; }
+.lessons span { color: rgba(239, 230, 210, 0.82); font-size: 0.95rem; }
+
+/* ---------- Footer ---------- */
+.foot { position: relative; z-index: 2; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 60px 80px; background: linear-gradient(180deg, transparent, var(--night) 18%); }
+.foot .wrap { display: grid; gap: 22px; }
+.foot h2 { font-size: 2rem; }
+.src { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 28px; list-style: none; padding: 0; margin: 0; font-size: 0.86rem; }
+.src a { color: var(--ivory); text-decoration: none; border-bottom: 1px solid var(--line); }
+.src a:hover { color: var(--gold-hi); border-color: var(--gold); }
+.src span { color: var(--muted); }
+.colophon { font-size: var(--s-small); color: var(--muted); max-width: 70ch; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+  .vignette { background: linear-gradient(180deg, transparent 0%, rgba(7, 8, 13, 0.1) 45%, rgba(7, 8, 13, 0.78) 100%); }
+  .act { align-items: flex-end; min-height: 128svh; padding-block: 48svh 8svh; }
+  .act.tall { min-height: 140svh; }
+  .panel { margin-left: 0; width: 100%; }
+  .hero { padding-block: 96px 6svh; align-items: flex-end; min-height: 96svh; }
+  .hero .panel { background: linear-gradient(180deg, rgba(7, 8, 13, 0.35), rgba(7, 8, 13, 0.88) 22%); padding: 18px 0 8px; }
+  .chap { letter-spacing: 0.1em; font-size: 0.66rem; }
+  .facts b { font-size: 1.6rem; }
+  .game { grid-template-columns: repeat(3, minmax(0, 1fr)) 52px; gap: 6px; }
+}
+@media (max-width: 420px) {
+  .facts { grid-template-columns: 1fr; }
+  .facts div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--line-soft); }
+  .loads { grid-template-columns: repeat(4, minmax(0, 1fr)) 54px; }
+}
+</style>
+
+<canvas id="stage" aria-label="Scène 3D interactive : glissez horizontalement pour la faire tourner"></canvas>
+<div class="vignette" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#ouverture">Carré <b>magique</b></a>
+    <div class="chap" id="chap"><em>I</em> · L’essence mathématique</div>
+  </div>
+  <div class="progress"><span id="prog"></span></div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <!-- ===================== I ===================== -->
+  <section class="act hero" id="ouverture" data-act="towers" data-square="loshu" data-mode="idle" data-chapter="I|L’essence mathématique">
+    <div class="panel">
+      <div class="eyebrow mono">4 9 2 · 3 5 7 · 8 1 6</div>
+      <h1>Le carré magique<span class="sub">anatomie d’un ordre parfait</span></h1>
+      <p class="lead">Neuf nombres, huit lignes, une seule somme : 15. Ce petit carré a servi de cosmogramme en Chine, de talisman au Caire et à Katsina, d’énigme à Euler. Ses cousins ordonnancent aujourd’hui des réseaux, des essais de laboratoire et des champs solaires, et l’un d’eux a démontré une propriété du monde quantique.</p>
+      <div class="facts">
+        <div><b>15</b><span>constante du 3×3, imposée par l’arithmétique</span></div>
+        <div><b>1</b><span>seul carré 3×3 possible, à symétrie près</span></div>
+        <div><b>1,78·10<sup>19</sup></b><span>carrés 6×6, comptés exactement en 2024</span></div>
+      </div>
+      <div class="hint">Défilez · glissez la scène pour la tourner</div>
+    </div>
+  </section>
+
+  <section class="act" id="constante" data-act="towers" data-square="loshu" data-mode="lines" data-chapter="I|L’essence mathématique">
+    <div class="panel">
+      <div class="eyebrow">I · L’essence mathématique</div>
+      <h2>Une somme <i>imposée</i></h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span></div>
+      <p>Les nombres de 1 à n² totalisent n²(n²+1)/2. Répartis sur n rangées de même somme, ils donnent la constante</p>
+      <div class="formula">S = n (n² + 1) / 2</div>
+      <p>soit 15, 34, 65, 111, 175, 260 et 369 pour les ordres 3 à 9. Personne ne la choisit : l’arithmétique l’impose. Choisissez une ligne pour la voir dans la scène.</p>
+      <div class="row" id="lines" role="group" aria-label="Lignes du Lo Shu">
+        <button class="chip" data-line="0" aria-pressed="true">Rangée 1</button>
+        <button class="chip" data-line="1" aria-pressed="false">Rangée 2</button>
+        <button class="chip" data-line="2" aria-pressed="false">Rangée 3</button>
+        <button class="chip" data-line="3" aria-pressed="false">Colonne 1</button>
+        <button class="chip" data-line="4" aria-pressed="false">Colonne 2</button>
+        <button class="chip" data-line="5" aria-pressed="false">Colonne 3</button>
+        <button class="chip" data-line="6" aria-pressed="false">Diagonale ↘</button>
+        <button class="chip" data-line="7" aria-pressed="false">Diagonale ↙</button>
+      </div>
+      <div class="readout" id="line-out" aria-live="polite">4 + 9 + 2 = <b>15</b></div>
+      <p class="small">Le carré « du Soleil » d’ordre 6 de la tradition occidentale totalise forcément 666 : c’est la somme de 1 à 36, quelle que soit la disposition. Aucun message n’y est caché.</p>
+    </div>
+  </section>
+
+  <section class="act" id="unicite" data-act="towers" data-square="loshu" data-mode="pairs" data-chapter="I|L’essence mathématique">
+    <div class="panel">
+      <div class="eyebrow">I · L’essence mathématique</div>
+      <h2>Un seul 3×3 <i>possible</i></h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span><span class="tag t-calc">Calculé</span></div>
+      <ol class="steps">
+        <li><span><strong>Le centre vaut 5.</strong> Les quatre lignes qui passent par le centre totalisent 4 × 15 = 60. Elles couvrent chaque case une fois et le centre quatre fois : 45 + 3c = 60.</span></li>
+        <li><span><strong>Les cases opposées valent 10.</strong> Chaque ligne centrale s’écrit a + 5 + a′ = 15 : (1, 9), (2, 8), (3, 7) et (4, 6) se font face.</span></li>
+        <li><span><strong>Le 9 ne peut pas occuper un coin.</strong> Il lui faudrait trois paires de somme 6 ; seules (1, 5) et (2, 4) existent, et 5 est au centre. Tout le reste est forcé.</span></li>
+      </ol>
+      <p>Vérification par ordinateur : sur les 362 880 façons de placer 1 à 9, exactement 8 sont magiques, le Lo Shu et ses 7 reflets.</p>
+      <div class="row"><button id="pairs-btn" aria-pressed="true">Afficher les paires opposées</button></div>
+    </div>
+  </section>
+
+  <section class="act tall" id="constructions" data-act="towers" data-square="siamese" data-mode="build" data-chapter="I|L’essence mathématique">
+    <div class="panel">
+      <div class="eyebrow">I · L’essence mathématique</div>
+      <h2>Construire <i>tous</i> les ordres</h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span></div>
+      <p>Pour un ordre impair, la méthode siamoise, rapportée du Siam par l’ambassadeur Simon de La Loubère en 1693, suffit. On place 1 au milieu de la rangée du haut, on monte en diagonale vers la droite en repliant les bords, et l’on descend d’une case quand la place est prise.</p>
+      <div class="sq" id="siam" style="grid-template-columns: repeat(5, 1fr)" aria-label="Carré siamois 5 × 5"></div>
+      <div class="row"><button class="primary" id="siam-play">Rejouer la construction</button></div>
+      <p class="small">Propriété cachée, vérifiée pour les ordres 3 à 9 : chaque bloc de 5 nombres consécutifs (une couleur) occupe une case par rangée et par colonne. Les ordres pairs ont leurs propres méthodes : le complément sur les diagonales pour 4, 8, 12, la méthode LUX de Conway pour 6, 10, 14.</p>
+    </div>
+  </section>
+
+  <section class="act" id="comptage" data-act="galaxy" data-chapter="I|L’essence mathématique">
+    <div class="panel">
+      <div class="eyebrow">I · L’essence mathématique</div>
+      <h2>Combien en <i>existe-t-il</i> ?</h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span><span class="tag t-calc">Calculé</span><span class="tag t-ouv">Ouvert</span></div>
+      <div class="count" id="count">
+        <div><span class="n">3×3</span><span class="v" data-final="1">1</span><span class="w">connu depuis l’Antiquité</span></div>
+        <div><span class="n">4×4</span><span class="v" data-final="880">880</span><span class="w">Frénicle de Bessy, 1693 ; recompté par énumération exhaustive</span></div>
+        <div><span class="n">5×5</span><span class="v" data-final="275 305 224">275 305 224</span><span class="w">Richard Schroeppel, 1973</span></div>
+        <div><span class="n">6×6</span><span class="v" data-final="17 753 889 197 660 635 632">17 753 889 197 660 635 632</span><span class="w">Hidetoshi Mino, 2024</span></div>
+        <div><span class="n">7×7</span><span class="v">inconnu</span><span class="w">seules des estimations existent</span></div>
+      </div>
+      <p>À raison d’un carré par nanoseconde, écrire tous les 6×6 prendrait environ 560 ans. Pourtant, un remplissage au hasard n’a qu’une chance sur 2,6·10²¹ d’être magique. <strong>L’ordre est rare en proportion et abondant en quantité.</strong></p>
+    </div>
+  </section>
+
+  <!-- ===================== II ===================== -->
+  <section class="act tall" id="tore" data-act="torus" data-chapter="II|Les vérités cachées">
+    <div class="panel">
+      <div class="eyebrow">II · Les vérités cachées</div>
+      <h2>Le carré est un <i>tore</i></h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span></div>
+      <p>Sur le temple jaïn de Parshvanath, à Khajuraho, un carré gravé au X<sup>e</sup> siècle a une propriété rare : toutes ses diagonales « brisées » valent aussi 34. Pavé à l’infini, il révèle sa vraie forme, une grille dessinée sur un tore, qu’on peut découper n’importe où.</p>
+      <p>La diagonale dorée sort par un bord et rentre par l’autre : 12 + 8 + 5 + 9 = 34. Enroulée sur le tore, elle devient une boucle continue.</p>
+      <div class="row">
+        <button class="primary" id="torus-roll" aria-pressed="true">Dérouler le tore</button>
+        <button id="torus-diag" aria-pressed="true">Diagonale brisée</button>
+      </div>
+      <p class="small">Il existe 384 carrés pandiagonaux 4×4, et aucun d’ordre 6, 10, 14… (Frost, 1878 ; Planck, 1919). Les carrés « les plus parfaits », dont celui de Khajuraho, sont la seule famille entièrement dénombrée (Ollerenshaw et Brée, 1998).</p>
+    </div>
+  </section>
+
+  <section class="act" id="illusions" data-act="towers" data-square="sagrada" data-mode="repeat" data-chapter="II|Les vérités cachées">
+    <div class="panel">
+      <div class="eyebrow">II · Les vérités cachées</div>
+      <h2>Ce que les carrés célèbres <i>ne cachent pas</i></h2>
+      <div class="tags"><span class="tag t-calc">Calculé</span></div>
+      <div class="cards">
+        <div class="card"><h3>Sagrada Família, 33</h3><p>Le 4×4 de Subirachs, dérivé de celui de Dürer, répète 14 et 10 (en rouge) et revendique 310 combinaisons de somme 33. Le calcul confirme 310, mais ce nombre ne dépend que de la liste des seize nombres : n’importe quel rangement en donne autant.</p></div>
+        <div class="card"><h3>Dürer, 1514</h3><p>86 groupes de quatre cases valent 34. C’est exactement le nombre de façons de choisir 4 entiers distincts entre 1 et 16 dont la somme fait 34.</p></div>
+        <div class="card"><h3>Lo Shu</h3><p class="mono">492² + 357² + 816² = 294² + 753² + 618²</p><p>L’identité découle de la symétrie centrale (chaque x fait face à 10 − x), pas d’un message caché.</p></div>
+      </div>
+      <div class="callout">La vraie propriété d’un carré est celle qu’un réarrangement détruirait.</div>
+    </div>
+  </section>
+
+  <section class="act tall" id="euler" data-act="euler" data-chapter="II|Les vérités cachées">
+    <div class="panel">
+      <div class="eyebrow">II · Les vérités cachées</div>
+      <h2>Deux ordres simples font un <i>ordre parfait</i></h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span></div>
+      <p>Un carré latin place n symboles, chacun une fois par rangée et par colonne. Euler a vu que deux carrés latins orthogonaux, superposés, donnent un carré magique. Chaque case reçoit deux chiffres en base 4 : A donne celui des quatre, B celui des unités.</p>
+      <div class="formula">M = 4A + B + 1</div>
+      <div class="range-label"><span>A et B séparés</span><span>Carré magique</span></div>
+      <input type="range" id="euler-t" min="0" max="100" value="0" aria-label="Superposer les deux carrés latins">
+      <p>En 1782, Euler demande s’il est possible de ranger 36 officiers de 6 régiments et 6 grades sans répétition par rangée ni colonne : deux carrés latins orthogonaux d’ordre 6. Gaston Tarry prouve en 1901 que non. En 1959, Bose, Shrikhande et Parker montrent qu’ils existent pour tous les autres ordres, sauf 2.</p>
+    </div>
+  </section>
+
+  <section class="act tall" id="birkhoff" data-act="birkhoff" data-chapter="II|Les vérités cachées">
+    <div class="panel">
+      <div class="eyebrow">II · Les vérités cachées</div>
+      <h2>Tout équilibre est une <i>somme de permutations</i></h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span><span class="tag t-etab">Établi</span></div>
+      <p>Divisé par 15, le Lo Shu devient une matrice dont chaque rangée et chaque colonne vaut 1. Le théorème de Birkhoff et von Neumann dit qu’une telle matrice est toujours une moyenne de permutations : des placements à une case par rangée et par colonne.</p>
+      <div class="formula">15 = 7 + 4 + 2 + 1 + 1</div>
+      <div class="row"><button class="primary" id="bvn-btn" aria-pressed="true">Recomposer les tours</button></div>
+      <p>Chaque couche de la scène est une permutation, d’épaisseur égale à son poids. Les commutateurs réseau ordonnancent leur trafic ainsi : chaque permutation est un appariement de ports, maintenu pendant une fraction du temps égale à son poids.</p>
+    </div>
+  </section>
+
+  <section class="act tall" id="quantique" data-act="quantum" data-chapter="II|Les vérités cachées">
+    <div class="panel">
+      <div class="eyebrow">II · Les vérités cachées</div>
+      <h2>Le carré que la physique classique <i>ne peut pas remplir</i></h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span><span class="tag t-etab">Établi</span></div>
+      <p>En 1990, Asher Peres et David Mermin ont rempli un 3×3 d’observables quantiques sur deux qubits. Chaque rangée doit avoir un produit +1 ; les colonnes, +1, +1 et −1. Touchez les cases pour leur donner la valeur +1 ou −1 et essayez de respecter les six règles.</p>
+      <div class="game" id="game" role="group" aria-label="Carré de Mermin–Peres"></div>
+      <div class="readout" id="game-out" aria-live="polite"></div>
+      <p>C’est impossible : le produit des neuf valeurs vaudrait +1 en lisant par rangées et −1 en lisant par colonnes. Une mesure quantique n’a donc pas de valeur fixée d’avance, indépendante des autres mesures faites avec elle. Avec des particules intriquées, deux joueurs qui ne communiquent pas gagnent pourtant à tous les coups ; l’expérience a été réalisée avec des photons en 2022.</p>
+      <p class="small">Au jeu correspondant, le meilleur score classique est 8 sur 9, vérifié sur les 4 096 stratégies déterministes.</p>
+    </div>
+  </section>
+
+  <!-- ===================== III ===================== -->
+  <section class="act tall" id="histoire" data-act="beads" data-chapter="III|La mémoire humaine">
+    <div class="panel">
+      <div class="eyebrow">III · La mémoire humaine</div>
+      <h2>De la rivière Luo <i>à Katsina</i></h2>
+      <p>La scène montre le Lo Shu tel qu’on le dessinait : les impairs en cercles clairs (<em>yang</em>), les pairs en perles d’or (<em>yin</em>).</p>
+      <ol class="tl">
+        <li><span class="d">Légende</span><span class="t">Une tortue sort de la rivière Luo, le diagramme sur la carapace. <span class="p">Récit fondateur, sans date.</span></span></li>
+        <li class="key"><span class="d">I<sup>er</sup> siècle</span><span class="t">Première attestation écrite du Lo Shu, dans le <em>Da Dai Liji</em>, en Chine.</span></li>
+        <li><span class="d">VI<sup>e</sup> siècle</span><span class="t">Varāhamihira utilise un 4×4 pour doser des parfums, en Inde.</span></li>
+        <li class="key"><span class="d">IX<sup>e</sup>–X<sup>e</sup> siècles</span><span class="t">Un traité grec est traduit en arabe ; Ṯābit ibn Qurra, al-Anṭākī, Būzjānī et les Ikhwān al-Ṣafāʾ construisent des carrés de tous ordres. C’est le <em>wafq</em>.</span></li>
+        <li><span class="d">X<sup>e</sup> siècle</span><span class="t">Le carré « le plus parfait » du temple de Khajuraho.</span></li>
+        <li><span class="d">1225</span><span class="t">Mort d’al-Būnī ; l’usage talismanique prend le pas sur l’étude mathématique.</span></li>
+        <li><span class="d">1275</span><span class="t">Yang Hui publie des carrés d’ordre 3 à 9.</span></li>
+        <li><span class="d">1514</span><span class="t">Dürer grave <em>Melencolia I</em>, la date dans la dernière rangée.</span></li>
+        <li><span class="d">1693</span><span class="t">Frénicle compte 880 carrés d’ordre 4 ; La Loubère publie la méthode siamoise.</span></li>
+        <li class="key"><span class="d">1732</span><span class="t">Al-Kishnāwī, savant peul de Katsina, écrit au Caire un traité de carrés jusqu’à l’ordre 11.</span></li>
+        <li><span class="d">1752</span><span class="t">Franklin décrit à Collinson son 8×8 de constante 260.</span></li>
+        <li><span class="d">1782 · 1959</span><span class="t">Les 36 officiers d’Euler, puis la réfutation de sa conjecture.</span></li>
+        <li class="key"><span class="d">1990 · 2024</span><span class="t">Le carré quantique de Mermin et Peres ; le compte exact des 6×6 et la preuve des carrés de carrés pour n ≥ 4.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="act" id="sahel" data-act="beads" data-chapter="III|La mémoire humaine">
+    <div class="panel">
+      <div class="eyebrow">III · La mémoire humaine</div>
+      <h2>Le savant, le sceau et <i>la croyance</i></h2>
+      <div class="tags"><span class="tag t-etab">Établi</span><span class="tag t-symb">Symbolique</span></div>
+      <p><strong>Muḥammad al-Kishnāwī</strong>, Peul de Katsina formé dans les cercles savants de sa ville, s’installe au Caire en 1732. Il y écrit en arabe un traité de construction de carrés jusqu’à l’ordre 11 et y enseigne ; l’historien al-Jabartī rapporte que son père apprit de lui l’art des carrés numériques et littéraux. Il meurt au Caire en 1741.</p>
+      <p>Dans tout le Sahel, la tradition du <strong><em>khātim</em></strong> (« sceau », <em>hatimi</em> en haoussa) perpétue l’usage talismanique. Le système <em>abjad</em> donne une valeur à chaque lettre arabe ; on calcule celle d’un nom ou d’un verset, puis on construit un carré dont la constante égale cette valeur. Les coins du Lo Shu, 2, 4, 6 et 8, forment ainsi le mot talismanique <em>budūḥ</em>.</p>
+      <div class="cards">
+        <div class="card"><div class="tags"><span class="tag t-demo">Démontré</span></div><p>Construire un carré de constante imposée est un vrai problème mathématique, que ces auteurs résolvaient avec méthode.</p></div>
+        <div class="card"><div class="tags"><span class="tag t-symb">Croyance</span></div><p>L’efficacité attribuée au carré n’a jamais été établie par une démarche vérifiable ; sa légitimité religieuse fait elle-même débat entre savants musulmans.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== IV ===================== -->
+  <section class="act tall" id="usages" data-act="galaxy" data-chapter="IV|Les usages réels">
+    <div class="panel">
+      <div class="eyebrow">IV · Les usages réels</div>
+      <h2>Où cette structure <i>travaille déjà</i></h2>
+      <p>Le carré magique au sens strict n’a presque pas d’usage industriel. Ses généralisations, en revanche, sont partout : les sommes égales, la règle « une fois par rangée et par colonne », la décomposition en permutations.</p>
+      <div class="cards">
+        <div class="card"><div class="tags"><span class="tag t-etab">Établi</span></div><h3>Plans d’expériences</h3><p>Le carré latin neutralise deux facteurs parasites : 16 essais au lieu de 64 pour comparer 4 bétons selon le jour de gâchée et l’enceinte de cure.</p></div>
+        <div class="card"><div class="tags"><span class="tag t-etab">Établi</span></div><h3>Hypercube latin</h3><p>Méthode de McKay (1979) : un point par tranche de chaque paramètre. Échantillonnage de référence en fiabilité et en études par éléments finis.</p></div>
+        <div class="card"><div class="tags"><span class="tag t-etab">Établi</span></div><h3>Commutateurs et centres de données</h3><p>La décomposition de Birkhoff transforme une matrice de trafic en suite d’appariements de ports.</p></div>
+        <div class="card"><div class="tags"><span class="tag t-etab">Établi</span></div><h3>Codes et radar</h3><p>Les carrés latins orthogonaux donnent des codes correcteurs et des partages de secret ; les tableaux de Costas, des sauts de fréquence en radar et sonar.</p></div>
+        <div class="card"><div class="tags"><span class="tag t-rech">Recherche</span></div><h3>Photovoltaïque sous ombrage</h3><p>Déplacer les modules selon un carré magique disperse l’ombre entre les rangées électriques : jusqu’à +34 % de puissance en simulation, selon l’ombrage.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== V ===================== -->
+  <section class="act tall" id="equilibre" data-act="plate" data-mode="squares" data-chapter="V|L’ingénierie de demain">
+    <div class="panel">
+      <div class="eyebrow">V · L’ingénierie de demain</div>
+      <h2>Le théorème de <i>l’équilibre</i></h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span><span class="tag t-calc">Calculé</span></div>
+      <p>Posez sur une grille des masses proportionnelles aux nombres d’un carré. S’il est semi-magique, le centre de gravité tombe exactement au centre. S’il est aussi associatif, son tenseur d’inertie est celui d’une répartition uniforme : <strong>des masses inégales se comportent comme des masses égales.</strong></p>
+      <div class="row" id="plate-set" role="group" aria-label="Disposition des masses">
+        <button class="chip" data-set="loshu" aria-pressed="true">Lo Shu</button>
+        <button class="chip" data-set="durer" aria-pressed="false">Dürer</button>
+        <button class="chip" data-set="khaj" aria-pressed="false">Khajuraho</button>
+        <button class="chip" data-set="random" aria-pressed="false">Mêmes masses au hasard</button>
+      </div>
+      <div class="readout" id="plate-out" aria-live="polite"></div>
+      <p class="small">Ellipse dorée : inertie réelle, écarts amplifiés quatre fois. Cercle pointillé : inertie d’une répartition uniforme. Preuve : l’écart à la moyenne est une fonction impaire de la position, alors que x², y² et xy sont paires ; les sommes se compensent par paires symétriques.</p>
+    </div>
+  </section>
+
+  <section class="act tall" id="cube" data-act="cube" data-chapter="V|L’ingénierie de demain">
+    <div class="panel">
+      <div class="eyebrow">V · L’ingénierie de demain</div>
+      <h2>125 masses, <i>un bloc homogène</i></h2>
+      <div class="tags"><span class="tag t-demo">Démontré</span><span class="tag t-calc">Calculé</span></div>
+      <p>La même preuve vaut en trois dimensions. Ce cube porte des masses de 1 à 125, toutes différentes. Ses lignes parallèles aux axes valent toutes 315 et il est associatif. Son tenseur d’inertie est donc exactement celui de 125 masses égales à 63 : il tourne sans balourd autour de n’importe quel axe passant par son centre.</p>
+      <div class="row" id="cube-set" role="group" aria-label="Disposition du cube">
+        <button class="chip" data-cube="assoc" aria-pressed="true">Cube associatif</button>
+        <button class="chip" data-cube="random" aria-pressed="false">Mêmes masses au hasard</button>
+      </div>
+      <div class="readout" id="cube-out" aria-live="polite"></div>
+      <p class="small">Sphère pointillée : inertie d’un cube homogène. Ellipsoïde : inertie réelle, écarts amplifiés six fois.</p>
+    </div>
+  </section>
+
+  <section class="act tall" id="charges" data-act="plate" data-mode="loads" data-chapter="V|L’ingénierie de demain">
+    <div class="panel">
+      <div class="eyebrow">V · L’ingénierie de demain</div>
+      <h2>Ranger des <i>charges réelles</i></h2>
+      <div class="tags"><span class="tag t-calc">Calculé</span><span class="tag t-spec">Spéculatif</span></div>
+      <p>Dans la réalité, les masses sont imposées : machines, palettes, cellules de batterie. Seule leur place se choisit. Voici seize charges de 8,5 à 31,5 kN sur une trame de 3 m, rangées au fil des livraisons. Les colonnes de droite et du bas donnent la charge de chaque file et son écart à la moyenne de 85,1 kN.</p>
+      <div class="loads" id="loads" aria-label="Grille des charges en kN"></div>
+      <div class="row">
+        <button class="primary" id="loads-opt">Optimiser la disposition</button>
+        <button id="loads-reset">Revenir aux livraisons</button>
+      </div>
+      <div class="readout" id="loads-out" aria-live="polite"></div>
+      <p class="small">Le problème généralise le partitionnement de nombres, qui est NP-difficile ; un recuit simulé le résout très bien à cette taille. Le même calcul ramène l’écart entre les groupes d’un pack de batteries 4S4P de 136 mAh à 5 mAh.</p>
+    </div>
+  </section>
+
+  <section class="act" id="pistes" data-act="plate" data-mode="loads" data-chapter="V|L’ingénierie de demain">
+    <div class="panel">
+      <div class="eyebrow">V · L’ingénierie de demain</div>
+      <h2>Pistes à <i>tester</i></h2>
+      <div class="cards">
+        <div class="card"><div class="tags"><span class="tag t-spec">Spéculatif</span></div><h3>Génie civil</h3><p>Disposition quasi-magique des charges d’exploitation sur planchers et radiers : comparer moments et flèches par éléments finis, disposition naïve contre optimisée.</p></div>
+        <div class="card"><div class="tags"><span class="tag t-spec">Spéculatif</span></div><h3>Séquençage par transversales</h3><p>L’ordre siamois touche chaque rangée et chaque colonne une fois par tour : à tester pour la mise en tension d’ancrages, le serrage de platines ou le décintrage.</p></div>
+        <div class="card"><div class="tags"><span class="tag t-spec">Spéculatif</span></div><h3>Mécanique et électrique</h3><p>Équilibrage de rotors à masses imposées ; groupement de cellules qui équilibre à la fois l’électrique et le thermique.</p></div>
+        <div class="card"><div class="tags"><span class="tag t-etab">Établi</span></div><h3>Logiciel</h3><p>Tests combinatoires par tableaux orthogonaux ; ordonnancement par décomposition de Birkhoff ; contrainte d’équilibre dans un solveur d’agencement de CAO.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== VI ===================== -->
+  <section class="act tall" id="lecons" data-act="beads" data-mode="finale" data-chapter="VI|Ce que le carré dit de l’ordre">
+    <div class="panel">
+      <div class="eyebrow">VI · Ce que le carré dit de l’ordre</div>
+      <h2>Six <i>leçons</i></h2>
+      <ol class="lessons">
+        <li><div><b>L’équilibre est une affaire de sommes.</b><span>1 et 9 voisinent avec 5 ; seules les lignes sont égales. L’homogénéité globale n’exige pas l’homogénéité locale.</span></div></li>
+        <li><div><b>L’ordre complexe naît d’ordres simples superposés.</b><span>Deux carrés latins triviaux font un carré magique, comme une série de Fourier fait un signal.</span></div></li>
+        <li><div><b>Équilibrer, c’est ordonnancer.</b><span>Tout équilibre de flux se réalise comme une suite d’appariements un à un.</span></div></li>
+        <li><div><b>La symétrie centrale fait le travail invisible.</b><span>Spectres, identités du Lo Shu, inertie des carrés associatifs : une seule cause.</span></div></li>
+        <li><div><b>L’ordre est rare en proportion.</b><span>Les bonnes solutions existent en masse ; ce qui manque, c’est la méthode pour les trouver.</span></div></li>
+        <li><div><b>Le sens humain est réel, pas physique.</b><span>La seule fois où un carré a démontré quelque chose sur la nature, c’est par la logique et l’expérience, avec Mermin et Peres.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <h2>Sources</h2>
+    <ul class="src">
+      <li><a href="https://oeis.org/A006052">OEIS A006052</a> <span>· nombre de carrés magiques par ordre</span></li>
+      <li><a href="https://arxiv.org/abs/2406.09364">Rome et Yamagishi</a> <span>· carrés de puissances, 2025</span></li>
+      <li><a href="https://arxiv.org/abs/1807.02983">Ripatti</a> <span>· carrés semi-magiques d’ordre 6</span></li>
+      <li><a href="https://arxiv.org/abs/2206.12042">Xu et al.</a> <span>· pseudo-télépathie quantique, 2022</span></li>
+      <li><a href="https://arxiv.org/abs/2104.05122">Rather et al.</a> <span>· 36 officiers intriqués, 2022</span></li>
+      <li><a href="https://mathpages.com/home/kmath417.htm">MathPages</a> <span>· carré magique de carrés</span></li>
+      <li><a href="https://www.springer.com/book/9783030179922">Sesiano</a> <span>· histoire des carrés magiques, 2019</span></li>
+      <li><a href="https://raco.cat/index.php/Suhayl/article/download/377823/471178">Tolsa</a> <span>· premiers carrés arabes</span></li>
+      <li><a href="https://en.wikipedia.org/wiki/Muhammad_ibn_Muhammad_al-Kishnawi">al-Kishnāwī</a> <span>· savant de Katsina</span></li>
+      <li><a href="https://research.abo.fi/sv/publications/it-is-like-mathematics-how-to-influence-the-universe-with-a-khati">Marlow</a> <span>· le khātim, Anthropos 2015</span></li>
+      <li><a href="https://royalsociety.org/blog/2015/04/ollerenshaws-magic-squares/">Royal Society</a> <span>· carrés d’Ollerenshaw</span></li>
+      <li><a href="https://zenodo.org/record/7565052">Valls et al.</a> <span>· décomposition de Birkhoff et commutateurs</span></li>
+      <li><a href="https://eprints.whiterose.ac.uk/142555">Etarhouni et al.</a> <span>· photovoltaïque et carré magique</span></li>
+      <li><a href="https://en.wikipedia.org/wiki/Latin_hypercube_sampling">Hypercube latin</a> <span>· McKay, 1979</span></li>
+      <li><a href="https://blog.sagradafamilia.org/en/the-magic-square-on-the-passion-facade/">Sagrada Família</a> <span>· le carré de la Passion</span></li>
+      <li><a href="https://founders.archives.gov/documents/Franklin/01-04-02-0146">Franklin à Collinson</a> <span>· 1752</span></li>
+    </ul>
+    <p class="colophon">Ce site accompagne le dossier « Le carré magique, anatomie d’un ordre parfait » (22 octobre 2026), qui contient les preuves complètes et 35 sources. Les résultats marqués « Calculé » ont été recalculés par programme : énumérations exhaustives, algèbre linéaire, recuit simulé. Préparé pour Ahmad.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var fr = function (x, d) { return x.toFixed(d === undefined ? 1 : d).replace(".", ",").replace("-", "−"); };
+
+  /* ---------- Données ---------- */
+  var LO = [[4, 9, 2], [3, 5, 7], [8, 1, 6]];
+  var DU = [[16, 3, 2, 13], [5, 10, 11, 8], [9, 6, 7, 12], [4, 15, 14, 1]];
+  var KH = [[7, 12, 1, 14], [2, 13, 8, 11], [16, 3, 10, 5], [9, 6, 15, 4]];
+  var RND = [[4, 11, 7, 9], [2, 15, 1, 8], [5, 14, 16, 3], [13, 6, 10, 12]];
+  function siamese(n) {
+    var M = [], i, j, k, r = 0, c = (n - 1) / 2;
+    for (i = 0; i < n; i++) { M.push([]); for (j = 0; j < n; j++) M[i].push(0); }
+    for (k = 1; k <= n * n; k++) {
+      M[r][c] = k;
+      var nr = (r - 1 + n) % n, nc = (c + 1) % n;
+      if (M[nr][nc]) { nr = (r + 1) % n; nc = c; }
+      r = nr; c = nc;
+    }
+    return M;
+  }
+  var S5 = siamese(5);
+  var SF = [[1, 14, 14, 4], [11, 7, 6, 9], [8, 10, 10, 5], [13, 2, 3, 15]];
+  var LOADS0 = [17.5, 12, 26, 15.5, 17.5, 8.5, 9.5, 30, 26.5, 27.5, 31.5, 22.5, 26, 17.5, 24, 28.5];
+
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function cubeAssoc() {
+    var n = 5, A = [[1, 1, 1], [1, 2, 3], [1, 3, 4]], out = [], i, j, k;
+    for (i = 0; i < n; i++) for (j = 0; j < n; j++) for (k = 0; k < n; k++) {
+      var r = [i - 2, j - 2, k - 2], d = [];
+      for (var a = 0; a < 3; a++) { var v = A[a][0] * r[0] + A[a][1] * r[1] + A[a][2] * r[2] + 2; d.push(((v % n) + n) % n); }
+      out.push(25 * d[0] + 5 * d[1] + d[2] + 1);
+    }
+    return out;
+  }
+  var CA = cubeAssoc();
+  var CR = CA.slice(); (function () { var rnd = mulberry32(7); for (var i = CR.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = CR[i]; CR[i] = CR[j]; CR[j] = t; } })();
+
+  var MSQ = window.MSQ = {
+    act: "towers", square: "loshu", mode: "idle", line: 0, pairs: true, siamK: 25,
+    torusRolled: true, torusDiag: true, eulerT: 0, bvnExploded: true,
+    game: [1, 1, 1, 1, 1, 1, 1, 1, 1], plateSet: "loshu", cubeSet: "assoc",
+    loads: LOADS0.slice(), data: { LO: LO, DU: DU, KH: KH, RND: RND, S5: S5, SF: SF, CA: CA, CR: CR },
+    reduce: reduce, stageReady: false
+  };
+
+  /* ---------- Défilement : acte courant, chapitre, progression ---------- */
+  var sections = Array.prototype.slice.call(document.querySelectorAll(".act"));
+  var chap = document.getElementById("chap"), prog = document.getElementById("prog");
+  var lastChap = "";
+  function onScroll() {
+    var h = window.innerHeight, best = null, bestD = 1e9;
+    for (var i = 0; i < sections.length; i++) {
+      var r = sections[i].getBoundingClientRect();
+      var c = (r.top + r.bottom) / 2, d = Math.abs(c - h * 0.5);
+      if (r.top <= h * 0.5 && r.bottom >= h * 0.5) { d = 0; }
+      if (d < bestD) { bestD = d; best = sections[i]; }
+    }
+    if (best) {
+      MSQ.act = best.dataset.act || "towers";
+      if (best.dataset.square) MSQ.square = best.dataset.square;
+      MSQ.mode = best.dataset.mode || "";
+      var ch = best.dataset.chapter || "";
+      if (ch !== lastChap) {
+        lastChap = ch; var p = ch.split("|");
+        chap.innerHTML = "<em>" + p[0] + "</em> · " + (p[1] || "");
+      }
+    }
+    var max = document.documentElement.scrollHeight - h;
+    prog.style.width = (max > 0 ? Math.min(100, Math.max(0, window.scrollY / max * 100)) : 0) + "%";
+    ticking = false;
+  }
+  var ticking = false;
+  window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  window.addEventListener("resize", onScroll);
+  onScroll();
+
+  /* ---------- Lignes du Lo Shu ---------- */
+  var LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+  var flat = [4, 9, 2, 3, 5, 7, 8, 1, 6];
+  var lineBtns = document.querySelectorAll("#lines button"), lineOut = document.getElementById("line-out");
+  function setLine(k) {
+    MSQ.line = k;
+    for (var i = 0; i < lineBtns.length; i++) lineBtns[i].setAttribute("aria-pressed", String(i === k));
+    var v = LINES[k].map(function (c) { return flat[c]; });
+    lineOut.innerHTML = v.join(" + ") + " = <b>15</b>";
+  }
+  Array.prototype.forEach.call(lineBtns, function (b) { b.addEventListener("click", function () { setLine(+b.dataset.line); }); });
+
+  /* ---------- Paires ---------- */
+  var pairsBtn = document.getElementById("pairs-btn");
+  pairsBtn.addEventListener("click", function () {
+    MSQ.pairs = !MSQ.pairs;
+    pairsBtn.setAttribute("aria-pressed", String(MSQ.pairs));
+    pairsBtn.textContent = MSQ.pairs ? "Masquer les paires opposées" : "Afficher les paires opposées";
+  });
+  pairsBtn.textContent = "Masquer les paires opposées";
+
+  /* ---------- Construction siamoise ---------- */
+  var siam = document.getElementById("siam"), siamCells = [];
+  for (var i = 0; i < 5; i++) for (var j = 0; j < 5; j++) {
+    var d = document.createElement("div"), v = S5[i][j];
+    d.textContent = v; d.dataset.v = v; d.className = "b" + Math.floor((v - 1) / 5);
+    siam.appendChild(d); siamCells.push(d);
+  }
+  function renderSiam(k) {
+    MSQ.siamK = k;
+    siamCells.forEach(function (c) {
+      var v = +c.dataset.v;
+      c.className = "b" + Math.floor((v - 1) / 5) + (v > k ? " empty" : "") + (v === k && k < 25 ? " now" : "");
+    });
+  }
+  var siamTimer = null;
+  document.getElementById("siam-play").addEventListener("click", function () {
+    if (siamTimer) clearInterval(siamTimer);
+    if (reduce) { renderSiam(25); return; }
+    var k = 0; renderSiam(0);
+    siamTimer = setInterval(function () { k++; renderSiam(k); if (k >= 25) { clearInterval(siamTimer); siamTimer = null; setTimeout(function () { renderSiam(25); }, 600); } }, 170);
+  });
+
+  /* ---------- Compteurs ---------- */
+  var countDone = false, countEl = document.getElementById("count");
+  function rollCounts() {
+    if (countDone || reduce) return; countDone = true;
+    var vs = countEl.querySelectorAll(".v[data-final]");
+    var t0 = performance.now(), dur = 1500;
+    (function step(t) {
+      var p = Math.min(1, (t - t0) / dur);
+      Array.prototype.forEach.call(vs, function (el) {
+        var f = el.dataset.final, digits = f.replace(/\D/g, "").length, reveal = Math.floor(p * digits), seen = 0, s = "";
+        for (var q = 0; q < f.length; q++) {
+          var ch = f[q];
+          if (/\d/.test(ch)) { s += seen < reveal ? ch : String(Math.floor(Math.random() * 10)); seen++; } else s += ch;
+        }
+        el.textContent = p >= 1 ? f : s;
+      });
+      if (p < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) rollCounts(); }); }, { threshold: 0.45 }).observe(countEl);
+  }
+
+  /* ---------- Tore ---------- */
+  var rollBtn = document.getElementById("torus-roll"), diagBtn = document.getElementById("torus-diag");
+  rollBtn.addEventListener("click", function () {
+    MSQ.torusRolled = !MSQ.torusRolled;
+    rollBtn.setAttribute("aria-pressed", String(MSQ.torusRolled));
+    rollBtn.textContent = MSQ.torusRolled ? "Dérouler le tore" : "Enrouler le tore";
+  });
+  diagBtn.addEventListener("click", function () {
+    MSQ.torusDiag = !MSQ.torusDiag; diagBtn.setAttribute("aria-pressed", String(MSQ.torusDiag));
+  });
+
+  /* ---------- Euler ---------- */
+  var eul = document.getElementById("euler-t");
+  eul.addEventListener("input", function () { MSQ.eulerT = eul.value / 100; });
+  MSQ.eulerT = eul.value / 100;
+
+  /* ---------- Birkhoff ---------- */
+  var bvnBtn = document.getElementById("bvn-btn");
+  bvnBtn.addEventListener("click", function () {
+    MSQ.bvnExploded = !MSQ.bvnExploded;
+    bvnBtn.setAttribute("aria-pressed", String(MSQ.bvnExploded));
+    bvnBtn.textContent = MSQ.bvnExploded ? "Recomposer les tours" : "Décomposer en permutations";
+  });
+
+  /* ---------- Mermin–Peres ---------- */
+  var OPS = ["X⊗I", "I⊗X", "X⊗X", "I⊗Z", "Z⊗I", "Z⊗Z", "X⊗Z", "Z⊗X", "Y⊗Y"];
+  var COLREQ = [1, 1, -1];
+  var game = document.getElementById("game"), gameOut = document.getElementById("game-out"), gcells = [], rules = [];
+  for (var r = 0; r < 3; r++) {
+    for (var c = 0; c < 3; c++) {
+      (function (idx) {
+        var b = document.createElement("button");
+        b.className = "cell"; b.type = "button";
+        b.innerHTML = '<span class="op">' + OPS[idx] + '</span><span class="val">+1</span>';
+        b.addEventListener("click", function () { MSQ.game[idx] *= -1; renderGame(); });
+        game.appendChild(b); gcells.push(b);
+      })(r * 3 + c);
+    }
+    var rr = document.createElement("div"); rr.className = "rule"; game.appendChild(rr); rules.push(rr);
+  }
+  for (c = 0; c < 3; c++) { var cr = document.createElement("div"); cr.className = "rule"; game.appendChild(cr); rules.push(cr); }
+  var corner = document.createElement("div"); game.appendChild(corner);
+  function renderGame() {
+    var g = MSQ.game, ok = 0, msgs = [];
+    gcells.forEach(function (b, i) {
+      b.dataset.v = String(g[i]);
+      b.querySelector(".val").textContent = g[i] > 0 ? "+1" : "−1";
+      b.setAttribute("aria-label", OPS[i] + " vaut " + (g[i] > 0 ? "plus un" : "moins un"));
+    });
+    for (var r2 = 0; r2 < 3; r2++) {
+      var p = g[r2 * 3] * g[r2 * 3 + 1] * g[r2 * 3 + 2], good = p === 1;
+      rules[r2].className = "rule " + (good ? "ok" : "bad"); rules[r2].innerHTML = "rangée<br>" + (p > 0 ? "+1" : "−1") + (good ? " ✓" : " ✗");
+      if (good) ok++; else msgs.push("rangée " + (r2 + 1));
+    }
+    for (var c2 = 0; c2 < 3; c2++) {
+      var q = g[c2] * g[3 + c2] * g[6 + c2], good2 = q === COLREQ[c2];
+      rules[3 + c2].className = "rule " + (good2 ? "ok" : "bad");
+      rules[3 + c2].innerHTML = "col. " + (c2 + 1) + "<br>veut " + (COLREQ[c2] > 0 ? "+1" : "−1") + (good2 ? " ✓" : " ✗");
+      if (good2) ok++; else msgs.push("colonne " + (c2 + 1));
+    }
+    gameOut.innerHTML = "Règles respectées : <b>" + ok + " / 6</b>" +
+      (msgs.length ? ' · <span class="bad">à corriger : ' + msgs.join(", ") + "</span>" : "");
+  }
+  renderGame();
+
+  /* ---------- Plateau : moments ---------- */
+  var SETS = { loshu: LO, durer: DU, khaj: KH, random: RND };
+  function moments2(M) {
+    var n = M.length, c = (n - 1) / 2, m = 0, sx = 0, sy = 0, jxy = 0, jxx = 0, jyy = 0;
+    for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
+      var w = M[i][j], x = j - c, y = c - i;
+      m += w; sx += w * x; sy += w * y; jxy += w * x * y; jxx += w * x * x; jyy += w * y * y;
+    }
+    return { cx: sx / m, cy: sy / m, jxy: jxy, jxx: jxx, jyy: jyy, m: m };
+  }
+  MSQ.moments2 = moments2;
+  var plateOut = document.getElementById("plate-out"), plateBtns = document.querySelectorAll("#plate-set button");
+  function renderPlate() {
+    var M = SETS[MSQ.plateSet], mo = moments2(M), d = Math.hypot(mo.cx, mo.cy);
+    plateOut.innerHTML = "Décalage du centre de gravité : <b>" + fr(d, 2) + "</b> case" +
+      "<br>Moments J<sub>xx</sub> / J<sub>yy</sub> : <b>" + Math.round(mo.jxx) + "</b> / <b>" + Math.round(mo.jyy) + "</b>" +
+      " · produit J<sub>xy</sub> : <b class='" + (Math.abs(mo.jxy) < 1e-9 ? "ok" : "bad") + "'>" + fr(mo.jxy, 0) + "</b>";
+  }
+  Array.prototype.forEach.call(plateBtns, function (b) {
+    b.addEventListener("click", function () {
+      MSQ.plateSet = b.dataset.set;
+      Array.prototype.forEach.call(plateBtns, function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+      renderPlate();
+    });
+  });
+  renderPlate();
+
+  /* ---------- Cube : tenseur d'inertie ---------- */
+  function tensor3(arr) {
+    var I = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], n = 5, idx = 0;
+    for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) for (var k = 0; k < n; k++) {
+      var m = arr[idx++], x = i - 2, y = j - 2, z = k - 2;
+      I[0][0] += m * (y * y + z * z); I[1][1] += m * (x * x + z * z); I[2][2] += m * (x * x + y * y);
+      I[0][1] -= m * x * y; I[0][2] -= m * x * z; I[1][2] -= m * y * z;
+    }
+    I[1][0] = I[0][1]; I[2][0] = I[0][2]; I[2][1] = I[1][2];
+    return I;
+  }
+  MSQ.tensor3 = tensor3;
+  var cubeOut = document.getElementById("cube-out"), cubeBtns = document.querySelectorAll("#cube-set button");
+  var nf = function (x) { return Math.round(x).toLocaleString("fr-FR").replace(/ /g, " "); };
+  function renderCube() {
+    var I = tensor3(MSQ.cubeSet === "assoc" ? CA : CR);
+    var pmax = Math.max(Math.abs(I[0][1]), Math.abs(I[0][2]), Math.abs(I[1][2]));
+    cubeOut.innerHTML = "I<sub>xx</sub> = <b>" + nf(I[0][0]) + "</b> · I<sub>yy</sub> = <b>" + nf(I[1][1]) + "</b> · I<sub>zz</sub> = <b>" + nf(I[2][2]) + "</b>" +
+      "<br>plus grand produit d’inertie : <b class='" + (pmax < 1e-9 ? "ok" : "bad") + "'>" + nf(pmax) + "</b>" +
+      (MSQ.cubeSet === "assoc" ? " · cube homogène équivalent : 125 × 63" : "");
+  }
+  Array.prototype.forEach.call(cubeBtns, function (b) {
+    b.addEventListener("click", function () {
+      MSQ.cubeSet = b.dataset.cube;
+      Array.prototype.forEach.call(cubeBtns, function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+      renderCube();
+    });
+  });
+  renderCube();
+
+  /* ---------- Charges : recuit simulé ---------- */
+  var loadsEl = document.getElementById("loads"), loadsOut = document.getElementById("loads-out");
+  var lcells = [], rsum = [], csum = [];
+  for (var a = 0; a < 4; a++) {
+    for (var b2 = 0; b2 < 4; b2++) { var lc = document.createElement("div"); lc.className = "c"; loadsEl.appendChild(lc); lcells.push(lc); }
+    var rs = document.createElement("div"); rs.className = "s"; loadsEl.appendChild(rs); rsum.push(rs);
+  }
+  for (a = 0; a < 4; a++) { var cs = document.createElement("div"); cs.className = "s cs"; loadsEl.appendChild(cs); csum.push(cs); }
+  loadsEl.appendChild(document.createElement("div"));
+  var VMIN = 8.5, VMAX = 31.5, TOTAL = LOADS0.reduce(function (s, x) { return s + x; }, 0), TARGET = TOTAL / 4;
+  function sums(G) {
+    var R = [0, 0, 0, 0], C = [0, 0, 0, 0];
+    for (var i = 0; i < 16; i++) { R[Math.floor(i / 4)] += G[i]; C[i % 4] += G[i]; }
+    return { R: R, C: C };
+  }
+  function lcost(G) {
+    var s = sums(G), mx = 0, tot = 0;
+    for (var i = 0; i < 4; i++) { var a1 = Math.abs(s.R[i] - TARGET), a2 = Math.abs(s.C[i] - TARGET); mx = Math.max(mx, a1, a2); tot += a1 + a2; }
+    return mx + 0.05 * tot;
+  }
+  function renderLoads(G, note) {
+    var s = sums(G), dmax = 0;
+    G.forEach(function (v, i) {
+      var t = (v - VMIN) / (VMAX - VMIN);
+      lcells[i].textContent = fr(v, 1).replace(",0", "");
+      lcells[i].style.background = "rgba(227, 184, 102, " + (0.22 + 0.7 * t).toFixed(3) + ")";
+      lcells[i].style.color = t > 0.42 ? "var(--night)" : "var(--ivory)";
+    });
+    for (var i = 0; i < 4; i++) {
+      var dr = s.R[i] - TARGET, dc = s.C[i] - TARGET;
+      dmax = Math.max(dmax, Math.abs(dr), Math.abs(dc));
+      rsum[i].className = "s" + (Math.abs(dr) > 1 ? " bad" : ""); rsum[i].innerHTML = fr(s.R[i], 1) + "<i>" + (dr >= 0 ? "+" : "") + fr(dr, 1) + "</i>";
+      csum[i].className = "s cs" + (Math.abs(dc) > 1 ? " bad" : ""); csum[i].innerHTML = fr(s.C[i], 1) + "<i>" + (dc >= 0 ? "+" : "") + fr(dc, 1) + "</i>";
+    }
+    var M2 = [G.slice(0, 4), G.slice(4, 8), G.slice(8, 12), G.slice(12, 16)], mo = moments2(M2);
+    var ecc = Math.hypot(mo.cx, mo.cy) * 300;
+    loadsOut.innerHTML = "Écart maximal par file : <b class='" + (dmax > 1 ? "bad" : "ok") + "'>" + fr(dmax, 1) + " kN</b>" +
+      " · excentrement de la résultante : <b>" + Math.round(ecc) + " cm</b>" + (note ? "<br>" + note : "");
+    MSQ.loads = G.slice();
+  }
+  var running = false;
+  document.getElementById("loads-opt").addEventListener("click", function () {
+    if (running) return; running = true;
+    var btn = this; btn.disabled = true;
+    var G = MSQ.loads.slice(), c = lcost(G), best = G.slice(), bc = c;
+    var total = 48000, it = 0, perFrame = reduce ? total : 420, T0 = 7.0;
+    (function frame() {
+      for (var k = 0; k < perFrame && it < total; k++, it++) {
+        var T = T0 * (1 - it / total) + 0.001;
+        var a1 = Math.floor(Math.random() * 16), b1 = Math.floor(Math.random() * 16);
+        if (a1 === b1) continue;
+        var t = G[a1]; G[a1] = G[b1]; G[b1] = t;
+        var nc = lcost(G);
+        if (nc < c || Math.random() < Math.exp(-(nc - c) / T)) { c = nc; if (c < bc) { bc = c; best = G.slice(); } }
+        else { t = G[a1]; G[a1] = G[b1]; G[b1] = t; }
+      }
+      if (it < total) { renderLoads(G, "Recuit simulé en cours : " + Math.round(it / total * 100) + " %"); requestAnimationFrame(frame); }
+      else { renderLoads(best, "Disposition quasi-magique trouvée en " + total.toLocaleString("fr-FR") + " échanges. Aucune charge n’a changé, seule leur place."); running = false; btn.disabled = false; }
+    })();
+  });
+  document.getElementById("loads-reset").addEventListener("click", function () {
+    if (running) return; renderLoads(LOADS0.slice(), "Disposition au fil des livraisons.");
+  });
+  renderLoads(LOADS0.slice(), "Disposition au fil des livraisons.");
+
+  /* ---------- Repli si la scène 3D ne démarre pas ---------- */
+  setTimeout(function () { if (!MSQ.stageReady) document.body.classList.add("no-webgl"); }, 7000);
+})();
+
+</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+const S = window.MSQ;
+const D = S.data;
+const REDUCE = S.reduce;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const damp = (cur, target, rate, dt) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
+
+async function main() {
+  const canvas = document.getElementById("stage");
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+  } catch (e) {
+    document.body.classList.add("no-webgl");
+    return;
+  }
+  const mobile = Math.min(window.innerWidth, window.innerHeight) < 700;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.4 : 1.75));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  // Polices pour les étiquettes dessinées sur canvas
+  try {
+    await Promise.race([
+      Promise.all([
+        document.fonts.load('600 120px "Cormorant Garamond"'),
+        document.fonts.load('500 120px "JetBrains Mono"'),
+      ]),
+      new Promise((r) => setTimeout(r, 2500)),
+    ]);
+  } catch (e) { /* polices de repli */ }
+
+  const scene = new THREE.Scene();
+  const NIGHT = new THREE.Color("#07080d");
+  scene.background = NIGHT;
+  scene.fog = new THREE.FogExp2(NIGHT, 0.03);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+  scene.add(new THREE.HemisphereLight(0xfff1d6, 0x0b0d16, 0.35));
+  const key = new THREE.DirectionalLight(0xffe2a8, 1.7); key.position.set(5, 9, 4); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x5cc4d1, 0.32); rim.position.set(-7, 3, -6); scene.add(rim);
+
+  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 200);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.55, 0.6, 0.8);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+
+  /* ---------- Matériaux et textures ---------- */
+  const mats = [];
+  function reg(m) { m.transparent = true; m.userData.base = m.opacity; mats.push(m); return m; }
+  const gold = (hex = "#e8b25a", rough = 0.26) => reg(new THREE.MeshPhysicalMaterial({
+    color: hex, metalness: 1, roughness: rough, clearcoat: 0.35, clearcoatRoughness: 0.25, envMapIntensity: 1.25,
+    emissive: new THREE.Color("#ffcf70"), emissiveIntensity: 0,
+  }));
+  const obsidian = () => reg(new THREE.MeshPhysicalMaterial({
+    color: "#12141d", metalness: 0.45, roughness: 0.3, clearcoat: 0.9, clearcoatRoughness: 0.18, envMapIntensity: 0.9,
+  }));
+  const glow = (hex, op = 1) => reg(new THREE.MeshBasicMaterial({ color: hex, opacity: op, toneMapped: false, depthWrite: false }));
+
+  const texCache = new Map();
+  function labelTex(text, opt = {}) {
+    const color = opt.color || "#f7dfa4";
+    const font = opt.font || '600 150px "Cormorant Garamond", Georgia, serif';
+    const k = text + "|" + color + "|" + font;
+    if (texCache.has(k)) return texCache.get(k);
+    const W = opt.w || 256, H = opt.h || 256;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    g.clearRect(0, 0, W, H);
+    g.font = font; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = color;
+    if (opt.shadow) { g.shadowColor = opt.shadow; g.shadowBlur = 18; }
+    g.fillText(text, W / 2, H / 2 + (opt.dy || 6));
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    texCache.set(k, t);
+    return t;
+  }
+  function sprite(text, size, opt) {
+    const m = reg(new THREE.SpriteMaterial({ map: labelTex(text, opt), depthWrite: false, toneMapped: false }));
+    const s = new THREE.Sprite(m); s.scale.set(size, size, 1); return s;
+  }
+  function labelPlane(text, size, opt) {
+    const m = reg(new THREE.MeshBasicMaterial({ map: labelTex(text, opt), depthWrite: false, toneMapped: false,
+      polygonOffset: true, polygonOffsetFactor: -2 }));
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(size, size), m);
+    p.rotation.x = -Math.PI / 2; return p;
+  }
+  // Disque gravé façon astrolabe
+  const floorTex = (() => {
+    const c = document.createElement("canvas"); c.width = c.height = 1024;
+    const g = c.getContext("2d"), C = 512;
+    const rg = g.createRadialGradient(C, C, 0, C, C, C);
+    rg.addColorStop(0, "rgba(227,184,102,0.22)"); rg.addColorStop(0.55, "rgba(227,184,102,0.06)"); rg.addColorStop(1, "rgba(227,184,102,0)");
+    g.fillStyle = rg; g.fillRect(0, 0, 1024, 1024);
+    g.strokeStyle = "rgba(247,223,164,0.35)";
+    [470, 452, 300].forEach((r, i) => { g.lineWidth = i === 0 ? 2 : 1; g.beginPath(); g.arc(C, C, r, 0, Math.PI * 2); g.stroke(); });
+    for (let a = 0; a < 360; a += 5) {
+      const r0 = a % 45 === 0 ? 420 : a % 15 === 0 ? 436 : 444, th = a * Math.PI / 180;
+      g.lineWidth = a % 45 === 0 ? 2 : 1;
+      g.beginPath(); g.moveTo(C + Math.cos(th) * r0, C + Math.sin(th) * r0); g.lineTo(C + Math.cos(th) * 452, C + Math.sin(th) * 452); g.stroke();
+    }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  function floor(radius, y = 0) {
+    const m = reg(new THREE.MeshBasicMaterial({ map: floorTex, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending }));
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), m);
+    p.rotation.x = -Math.PI / 2; p.position.y = y; return p;
+  }
+
+  /* ---------- Monde, actes, transitions ---------- */
+  const world = new THREE.Group(); scene.add(world);
+  const acts = {};
+  function addAct(name, group, cam, update, onEnter) {
+    group.visible = false;
+    group.userData = { alpha: 0, applied: -1 };
+    world.add(group);
+    acts[name] = { group, cam, update, onEnter, wasActive: false };
+  }
+  function applyOpacity(group, a) {
+    group.traverse((o) => {
+      const m = o.material; if (!m) return;
+      const arr = Array.isArray(m) ? m : [m];
+      for (const mm of arr) {
+        const base = mm.userData.base === undefined ? 1 : mm.userData.base;
+        const loc = mm.userData.local === undefined ? 1 : mm.userData.local;
+        mm.opacity = base * a * loc;
+      }
+    });
+  }
+
+  /* ---------- Poussière d'or ---------- */
+  const dust = (() => {
+    const N = mobile ? 700 : 1400, pos = new Float32Array(N * 3), sp = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 34; pos[i * 3 + 1] = (Math.random() - 0.5) * 18; pos[i * 3 + 2] = (Math.random() - 0.5) * 34;
+      sp[i] = 0.05 + Math.random() * 0.18;
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xf2cf86, size: 0.05, transparent: true, opacity: 0.55,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    scene.add(pts);
+    return { pts, pos, sp, N };
+  })();
+
+  /* =========================================================
+     ACTE : TOURS (Lo Shu, siamois, Sagrada)
+     ========================================================= */
+  const towersG = new THREE.Group();
+  towersG.add(floor(4.6, -0.01));
+  const towerHolder = new THREE.Group(); towersG.add(towerHolder);
+  const lineRod = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 12), glow("#ffd98a"));
+  towersG.add(lineRod);
+  const lineSum = sprite("15", 1.1, { color: "#ffe6ad", shadow: "rgba(255,200,90,0.9)" }); towersG.add(lineSum);
+  const pairArcs = new THREE.Group(); towersG.add(pairArcs);
+  const pairMat = glow("#efe6d2", 0.75);
+  let TW = { key: "", items: [], n: 0, sp: 1 };
+  const SQ = { loshu: D.LO, siamese: D.S5, sagrada: D.SF };
+  function buildTowers(keyName) {
+    for (const it of TW.items) { towerHolder.remove(it.mesh); towerHolder.remove(it.label); it.mat.dispose(); it.label.material.dispose(); }
+    const M = SQ[keyName], n = M.length;
+    const sp = n === 3 ? 1.32 : n === 4 ? 1.06 : 0.86, w = sp * 0.8;
+    const geo = new RoundedBoxGeometry(w, 1, w, 3, Math.min(0.08, w * 0.1)); geo.translate(0, 0.5, 0);
+    const vmax = Math.max(...M.flat());
+    const items = [];
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const v = M[i][j];
+      const mat = gold(v % 2 ? "#f0d7a2" : "#d4952f", v % 2 ? 0.32 : 0.24);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set((j - (n - 1) / 2) * sp, 0, (i - (n - 1) / 2) * sp);
+      mesh.scale.y = 0.001;
+      const label = sprite(String(v), sp * 0.5, { color: "#fff0cc" });
+      towerHolder.add(mesh); towerHolder.add(label);
+      items.push({ mesh, label, mat, v, i, j, h: 0.001, target: 0.3 + 3.2 * v / vmax, glow: 0 });
+    }
+    applyOpacity(towersG, towersG.userData.alpha);
+    TW = { key: keyName, items, n, sp };
+    buildArcs();
+  }
+  function buildArcs() {
+    pairArcs.clear();
+    if (TW.n !== 3) return;
+    const it = (i, j) => TW.items[i * 3 + j];
+    const pairs = [[[0, 0], [2, 2]], [[0, 1], [2, 1]], [[0, 2], [2, 0]], [[1, 0], [1, 2]]];
+    for (const [a, b] of pairs) {
+      const A = it(...a), B = it(...b);
+      const pa = new THREE.Vector3(A.mesh.position.x, A.target + 0.05, A.mesh.position.z);
+      const pb = new THREE.Vector3(B.mesh.position.x, B.target + 0.05, B.mesh.position.z);
+      const mid = pa.clone().add(pb).multiplyScalar(0.5); mid.y = 4.9;
+      const curve = new THREE.QuadraticBezierCurve3(pa, mid, pb);
+      pairArcs.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.022, 8, false), pairMat));
+    }
+  }
+  const up = new THREE.Vector3(0, 1, 0);
+  function placeRod(a, b) {
+    const d = b.clone().sub(a), L = d.length();
+    lineRod.position.copy(a).add(b).multiplyScalar(0.5);
+    lineRod.scale.set(1, L, 1);
+    lineRod.quaternion.setFromUnitVectors(up, d.normalize());
+  }
+  const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+  addAct("towers", towersG, () => {
+    const n = TW.n || 3;
+    return n === 3 ? { p: [6.6, 6.6, 8.4], t: [0, 1.5, 0] } : { p: [7.2, 7.8, 9.4], t: [0, 1.4, 0] };
+  }, (dt, time) => {
+    if (TW.key !== S.square) buildTowers(S.square);
+    const mode = S.mode;
+    let hl = new Set(), hlColor = "#ffb446";
+    if (mode === "lines" && TW.n === 3) LINES[S.line].forEach((c) => hl.add(c));
+    if (mode === "pairs" && TW.n === 3) hl.add(4);
+    if (mode === "repeat") TW.items.forEach((it, k) => { if (it.v === 14 || it.v === 10) hl.add(k); });
+    if (mode === "repeat") hlColor = "#ff7a45";
+    for (let k = 0; k < TW.items.length; k++) {
+      const it = TW.items[k];
+      let target = it.target;
+      if (mode === "build" && it.v > S.siamK) target = 0.001;
+      it.h = damp(it.h, target, REDUCE ? 30 : 5, dt);
+      it.mesh.scale.y = Math.max(0.001, it.h);
+      it.label.position.set(it.mesh.position.x, it.h + TW.sp * 0.36, it.mesh.position.z);
+      it.label.visible = it.h > 0.08;
+      let g = hl.has(k) ? 1 : 0;
+      if (mode === "build" && it.v === S.siamK && S.siamK < 25) g = 1;
+      it.glow = damp(it.glow, g, 6, dt);
+      it.mat.emissive.set(hlColor);
+      it.mat.emissiveIntensity = it.glow * 0.42;
+    }
+    const showLine = mode === "lines" && TW.n === 3;
+    lineRod.visible = lineSum.visible = showLine;
+    if (showLine) {
+      const L = LINES[S.line].map((c) => TW.items[c]);
+      const yTop = Math.max(...L.map((x) => x.h)) + 0.75;
+      const a = new THREE.Vector3(L[0].mesh.position.x, yTop, L[0].mesh.position.z);
+      const b = new THREE.Vector3(L[2].mesh.position.x, yTop, L[2].mesh.position.z);
+      const dir = b.clone().sub(a).normalize().multiplyScalar(0.45);
+      placeRod(a.clone().sub(dir), b.clone().add(dir));
+      lineSum.position.set(L[1].mesh.position.x, yTop + 0.75, L[1].mesh.position.z);
+    }
+    pairArcs.visible = mode === "pairs" && S.pairs && TW.n === 3;
+    if (!REDUCE) {
+      if (mode === "idle") towerHolder.rotation.y += dt * 0.12;
+      else { const r = Math.atan2(Math.sin(towerHolder.rotation.y), Math.cos(towerHolder.rotation.y)); towerHolder.rotation.y = damp(r, 0, 2, dt); }
+    }
+    pairArcs.rotation.y = towerHolder.rotation.y;
+  });
+  buildTowers("loshu");
+
+  /* =========================================================
+     ACTE : TORE (Khajuraho pavé 3 × 3 enroulé)
+     ========================================================= */
+  const torusG = new THREE.Group();
+  const NT = 12, CELL = 0.5, RT = 2.35, rT = (NT * CELL) / (2 * Math.PI);
+  const tileGeo = new RoundedBoxGeometry(0.44, 0.07, 0.44, 2, 0.02);
+  const obs = obsidian(), goldTile = gold("#e7b45e", 0.22);
+  const tiles = [];
+  for (let i = 0; i < NT; i++) for (let j = 0; j < NT; j++) {
+    const v = D.KH[i % 4][j % 4];
+    const diag = j === (i + 1) % NT;
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(tileGeo, diag ? goldTile : obs);
+    const lab = labelPlane(String(v), 0.4, { color: "#f2d38f", font: '600 140px "Cormorant Garamond", Georgia, serif' });
+    const labD = labelPlane(String(v), 0.4, { color: "#1a1206", font: '700 140px "Cormorant Garamond", Georgia, serif' });
+    lab.position.y = labD.position.y = 0.04;
+    g.add(body); g.add(lab); g.add(labD);
+    torusG.add(g);
+    tiles.push({ g, body, lab, labD, i, j, diag });
+  }
+  let tubeMesh = null; const tubeMat = glow("#ffd27a", 1);
+  let mT = 0, mTlast = -1;
+  const tmpM = new THREE.Matrix4(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
+  const X = new THREE.Vector3(), Y = new THREE.Vector3(), Z = new THREE.Vector3();
+  function tilePose(i, j, m, outP, outQ) {
+    const x = (j - (NT - 1) / 2) * CELL, z = (i - (NT - 1) / 2) * CELL;
+    const m1 = sstep(0, 0.5, m), m2 = sstep(0.5, 1, m);
+    // étape 1 : feuille -> cylindre (axe parallèle à x)
+    const k = m1 / rT;
+    let py, pz, ny, nz;
+    if (k < 1e-4) { py = 0; pz = z; ny = 1; nz = 0; }
+    else { const ph = z * k; py = -(1 - Math.cos(ph)) / k; pz = Math.sin(ph) / k; ny = Math.cos(ph); nz = Math.sin(ph); }
+    const P1 = new THREE.Vector3(x, py, pz);
+    X.set(1, 0, 0); Y.set(0, ny, nz); Z.crossVectors(X, Y);
+    tmpM.makeBasis(X, Y, Z); qa.setFromRotationMatrix(tmpM);
+    if (m2 <= 0) { outP.copy(P1).add(new THREE.Vector3(0, rT * m1, 0)); outQ.copy(qa); return; }
+    // étape 2 : cylindre -> tore (anneau dans le plan xz)
+    const psi = x * (Math.PI / ((NT * CELL) / 2)), ph = z / rT;
+    const rad = new THREE.Vector3(Math.sin(psi), 0, Math.cos(psi));
+    const C = new THREE.Vector3(RT * Math.sin(psi), -rT, RT * Math.cos(psi) - RT);
+    const N = new THREE.Vector3(0, Math.cos(ph), 0).addScaledVector(rad, Math.sin(ph));
+    const P2 = C.clone().addScaledVector(N, rT);
+    X.set(Math.cos(psi), 0, -Math.sin(psi)); Y.copy(N); Z.crossVectors(X, Y);
+    tmpM.makeBasis(X, Y, Z); qb.setFromRotationMatrix(tmpM);
+    outP.copy(P1).lerp(P2, m2).add(new THREE.Vector3(0, rT, RT * m2));
+    outQ.copy(qa).slerp(qb, m2);
+  }
+  addAct("torus", torusG, () => ({ p: [0, 6.8 + mT * 0.9, 10.4], t: [0, 0, 0] }), (dt, time) => {
+    mT = damp(mT, S.torusRolled ? 1 : 0, REDUCE ? 30 : 1.25, dt);
+    const P = new THREE.Vector3(), Q = new THREE.Quaternion();
+    const pts = [];
+    for (const t of tiles) {
+      tilePose(t.i, t.j, mT, P, Q);
+      t.g.position.copy(P); t.g.quaternion.copy(Q);
+      const isD = t.diag && S.torusDiag;
+      t.body.material = isD ? goldTile : obs;
+      t.lab.visible = !isD; t.labD.visible = isD;
+      if (t.diag) pts[t.i] = P.clone().add(new THREE.Vector3(0, 0.12, 0).applyQuaternion(Q));
+    }
+    if (Math.abs(mT - mTlast) > 0.002 || (!tubeMesh && S.torusDiag && mT > 0.7)) {
+      mTlast = mT;
+      if (tubeMesh) { torusG.remove(tubeMesh); tubeMesh.geometry.dispose(); tubeMesh = null; }
+      if (mT > 0.7) {
+        const closed = mT > 0.985;
+        const curve = new THREE.CatmullRomCurve3(closed ? pts : pts.slice(0, NT - 1), closed, "centripetal");
+        tubeMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 180, 0.03, 8, closed), tubeMat);
+        torusG.add(tubeMesh);
+      }
+    }
+    tubeMat.userData.local = sstep(0.7, 0.97, mT);
+    tubeMat.opacity = tubeMat.userData.base * torusG.userData.alpha * tubeMat.userData.local;
+    if (tubeMesh) tubeMesh.visible = S.torusDiag;
+    if (!REDUCE) { torusG.rotation.y += dt * 0.1 * mT; torusG.rotation.x = 0.18 * mT; }
+  }, () => { if (S.torusRolled && !REDUCE) { mT = 0; mTlast = -1; } });
+
+  /* =========================================================
+     ACTE : GALAXIE (dénombrement)
+     ========================================================= */
+  const galaxyG = new THREE.Group();
+  (() => {
+    const N = mobile ? 5000 : 11000, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+    const c1 = new THREE.Color("#ffd98a"), c2 = new THREE.Color("#efe6d2"), c3 = new THREE.Color("#5cc4d1");
+    for (let i = 0; i < N; i++) {
+      const arm = i % 4, r = Math.pow(Math.random(), 0.7) * 7.5, a = arm * Math.PI / 2 + r * 0.55 + (Math.random() - 0.5) * 0.55;
+      pos[i * 3] = Math.cos(a) * r + (Math.random() - 0.5) * 0.35;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * (0.5 - r * 0.04);
+      pos[i * 3 + 2] = Math.sin(a) * r + (Math.random() - 0.5) * 0.35;
+      const c = r < 2 ? c1.clone().lerp(c2, r / 2) : c2.clone().lerp(c3, Math.min(1, (r - 2) / 7) * 0.6);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    const m = reg(new THREE.PointsMaterial({ size: 0.045, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    galaxyG.add(new THREE.Points(geo, m));
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 16), glow("#fff1c8", 1));
+    galaxyG.add(core);
+  })();
+  addAct("galaxy", galaxyG, () => ({ p: [0, 4.4, 11.5], t: [0, -0.4, 0] }), (dt, time) => {
+    if (!REDUCE) galaxyG.rotation.y = time * 0.05;
+    galaxyG.rotation.x = 0.32;
+  });
+
+  /* =========================================================
+     ACTE : EULER (deux carrés latins -> carré magique)
+     ========================================================= */
+  const eulerG = new THREE.Group();
+  eulerG.add(floor(3.6, -0.02));
+  const A4 = [[0, 1, 2, 3], [2, 3, 0, 1], [3, 2, 1, 0], [1, 0, 3, 2]];
+  const B4 = [[0, 1, 2, 3], [3, 2, 1, 0], [1, 0, 3, 2], [2, 3, 0, 1]];
+  const GREEK = ["α", "β", "γ", "δ"];
+  const ACOL = ["#5cc4d1", "#e3b866", "#a996dc", "#e2734a"];
+  const eTile = new RoundedBoxGeometry(0.86, 0.1, 0.86, 2, 0.03);
+  const layA = new THREE.Group(), layB = new THREE.Group(), layM = new THREE.Group();
+  const aMats = ACOL.map((c) => reg(new THREE.MeshPhysicalMaterial({ color: c, metalness: 0.3, roughness: 0.25, clearcoat: 1, opacity: 0.82 })));
+  const bMat = obsidian(), mMat = gold("#e7b45e", 0.22);
+  const localA = [], localB = [], localM = [];
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const x = (j - 1.5) * 1.0, z = (i - 1.5) * 1.0;
+    const ta = new THREE.Mesh(eTile, aMats[A4[i][j]]); ta.position.set(x, 0, z);
+    const la = labelPlane(String(A4[i][j]), 0.6, { color: "#10131c", font: '600 150px "JetBrains Mono", monospace' }); la.position.set(x, 0.06, z);
+    layA.add(ta, la); localA.push(ta.material, la.material);
+    const tb = new THREE.Mesh(eTile, bMat); tb.position.set(x, 0, z);
+    const lb = labelPlane(GREEK[B4[i][j]], 0.62, { color: "#efe6d2", font: 'italic 600 170px "Cormorant Garamond", Georgia, serif' }); lb.position.set(x, 0.06, z);
+    layB.add(tb, lb); localB.push(lb.material);
+    const tm = new THREE.Mesh(eTile, mMat); tm.position.set(x, 0, z);
+    const lm = labelPlane(String(4 * A4[i][j] + B4[i][j] + 1), 0.62, { color: "#1a1206", font: '700 150px "Cormorant Garamond", Georgia, serif' }); lm.position.set(x, 0.06, z);
+    layM.add(tm, lm); localM.push(lm.material);
+  }
+  localA.push(...aMats); localB.push(bMat); localM.push(mMat);
+  const uniqA = [...new Set(localA)], uniqB = [...new Set(localB)], uniqM = [...new Set(localM)];
+  eulerG.add(layA, layB, layM);
+  const tagA = sprite("A", 0.7, { color: "#5cc4d1", font: '600 150px "Cormorant Garamond", serif' });
+  const tagB = sprite("B", 0.7, { color: "#efe6d2", font: '600 150px "Cormorant Garamond", serif' });
+  const tagM = sprite("34", 0.9, { color: "#ffe6ad", font: '600 150px "Cormorant Garamond", serif', shadow: "rgba(255,200,90,0.9)" });
+  eulerG.add(tagA, tagB, tagM);
+  let eT = 0;
+  addAct("euler", eulerG, () => ({ p: [5.6, 6.4, 7.4], t: [0, 1.0, 0] }), (dt) => {
+    eT = damp(eT, S.eulerT, REDUCE ? 30 : 6, dt);
+    const s1 = sstep(0, 0.6, eT), s2 = sstep(0.55, 1, eT);
+    layA.position.y = 2.7 - 2.45 * s1; layB.position.y = 1.25 - 1.1 * s1 + 0.0;
+    layM.position.y = 0.15; layM.scale.setScalar(Math.max(0.001, s2));
+    const al = eulerG.userData.alpha;
+    for (const m of uniqA) { m.userData.local = 1 - s2; m.opacity = m.userData.base * al * (1 - s2); }
+    for (const m of uniqB) { m.userData.local = 1 - s2; m.opacity = m.userData.base * al * (1 - s2); }
+    layA.visible = layB.visible = s2 < 0.99;
+    layM.visible = s2 > 0.01;
+    tagA.position.set(-2.55, layA.position.y + 0.2, 0); tagB.position.set(-2.55, layB.position.y + 0.2, 0);
+    tagA.visible = tagB.visible = s2 < 0.5; tagM.visible = s2 > 0.6;
+    tagM.position.set(0, 1.4, 0);
+    tagA.material.opacity = tagB.material.opacity = al * (1 - s2);
+  });
+
+  /* =========================================================
+     ACTE : BIRKHOFF (Lo Shu = 7 + 4 + 2 + 1 + 1 permutations)
+     ========================================================= */
+  const bvnG = new THREE.Group();
+  bvnG.add(floor(4.4, -0.01));
+  const LAYERS = [{ w: 7, p: [1, 2, 0], c: "#e3a845" }, { w: 4, p: [0, 1, 2], c: "#efdcae" },
+    { w: 2, p: [1, 0, 2], c: "#5cc4d1" }, { w: 1, p: [2, 0, 1], c: "#e2734a" }, { w: 1, p: [2, 1, 0], c: "#a996dc" }];
+  const H0 = 0.34, SPB = 1.32;
+  const slabGeo = new RoundedBoxGeometry(1.0, 1, 1.0, 2, 0.05); slabGeo.translate(0, 0.5, 0);
+  const slabs = [];
+  const cum = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  LAYERS.forEach((L, k) => {
+    const mat = reg(new THREE.MeshPhysicalMaterial({ color: L.c, metalness: k < 2 ? 1 : 0.75, roughness: 0.26, clearcoat: 0.6, envMapIntensity: 1.2 }));
+    for (let i = 0; i < 3; i++) {
+      const j = L.p[i];
+      const m = new THREE.Mesh(slabGeo, mat);
+      m.position.set((j - 1) * SPB, 0, (i - 1) * SPB);
+      m.scale.y = L.w * H0 - 0.025;
+      bvnG.add(m);
+      slabs.push({ m, k, base: cum[i][j] });
+      cum[i][j] += L.w * H0;
+    }
+  });
+  const layerLabels = LAYERS.map((L) => { const s = sprite(L.w + " ×", 0.75, { color: L.c, font: '600 130px "Cormorant Garamond", serif' }); bvnG.add(s); return s; });
+  const topLabels = [];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    const s = sprite(String(D.LO[i][j]), 0.62, { color: "#fff0cc" }); bvnG.add(s);
+    topLabels.push({ s, i, j, h: D.LO[i][j] * H0 });
+  }
+  let eB = 1;
+  addAct("birkhoff", bvnG, () => ({ p: [6.9, 6.6, 8.7], t: [0, 2.1, 0] }), (dt, time) => {
+    eB = damp(eB, S.bvnExploded ? 1 : 0, REDUCE ? 30 : 3, dt);
+    const GAP = 0.62;
+    for (const s of slabs) s.m.position.y = s.base + s.k * GAP * eB;
+    LAYERS.forEach((L, k) => {
+      const ys = slabs.filter((s) => s.k === k).map((s) => s.m.position.y + L.w * H0 / 2);
+      const y = ys.reduce((a, b) => a + b, 0) / ys.length;
+      layerLabels[k].position.set(-2.55, y, 1.2);
+      layerLabels[k].material.opacity = bvnG.userData.alpha * eB;
+      layerLabels[k].visible = eB > 0.05;
+    });
+    for (const t of topLabels) {
+      t.s.position.set((t.j - 1) * SPB, t.h + 0.45, (t.i - 1) * SPB);
+      t.s.material.opacity = bvnG.userData.alpha * (1 - eB);
+      t.s.visible = eB < 0.95;
+    }
+    if (!REDUCE) bvnG.rotation.y = Math.sin(time * 0.25) * 0.35;
+  });
+
+  /* =========================================================
+     ACTE : QUANTIQUE (Mermin–Peres)
+     ========================================================= */
+  const qG = new THREE.Group();
+  qG.add(floor(4.2, -0.3));
+  const OPS = ["X⊗I", "I⊗X", "X⊗X", "I⊗Z", "Z⊗I", "Z⊗Z", "X⊗Z", "Z⊗X", "Y⊗Y"];
+  const halfGeo = new RoundedBoxGeometry(1.5, 0.09, 1.5, 2, 0.04);
+  const plusMat = gold("#e8b25a", 0.24);
+  const minusMat = reg(new THREE.MeshPhysicalMaterial({ color: "#d4643a", metalness: 0.85, roughness: 0.3, clearcoat: 0.6, emissive: new THREE.Color("#ff6a3a"), emissiveIntensity: 0.15 }));
+  const qTiles = [];
+  const QS = 1.75;
+  OPS.forEach((op, idx) => {
+    const i = Math.floor(idx / 3), j = idx % 3;
+    const g = new THREE.Group(); g.position.set((j - 1) * QS, 0, (i - 1) * QS);
+    const top = new THREE.Mesh(halfGeo, plusMat); top.position.y = 0.045;
+    const bot = new THREE.Mesh(halfGeo, minusMat); bot.position.y = -0.045;
+    const lt = labelPlane(op, 1.25, { color: "#1a1206", font: '600 64px "JetBrains Mono", "DejaVu Sans Mono", monospace', w: 256, h: 256 }); lt.position.y = 0.1;
+    const lb = labelPlane(op, 1.25, { color: "#fff1e6", font: '600 64px "JetBrains Mono", "DejaVu Sans Mono", monospace', w: 256, h: 256 }); lb.position.y = -0.1; lb.rotation.x = Math.PI / 2;
+    const pl = sprite("+1", 0.55, { color: "#ffe6ad", font: '600 150px "Cormorant Garamond", serif' }); pl.position.set(0, 0.55, 0.5);
+    const mi = sprite("−1", 0.55, { color: "#ffb08f", font: '600 150px "Cormorant Garamond", serif' }); mi.position.set(0, 0.55, 0.5);
+    const flip = new THREE.Group(); flip.add(top, bot, lt, lb);
+    g.add(flip, pl, mi); qG.add(g);
+    qTiles.push({ flip, pl, mi, a: 0 });
+  });
+  const okMat = glow("#5cc4d1", 1), badMat = glow("#ff6a3a", 1);
+  const ruleGeo = new THREE.CapsuleGeometry(0.09, 0.9, 6, 12);
+  const rowRules = [0, 1, 2].map((i) => { const m = new THREE.Mesh(ruleGeo, okMat); m.rotation.x = Math.PI / 2; m.position.set(2.75, 0, (i - 1) * QS); qG.add(m); return m; });
+  const colRules = [0, 1, 2].map((j) => { const m = new THREE.Mesh(ruleGeo, okMat); m.rotation.z = Math.PI / 2; m.position.set((j - 1) * QS, 0, 2.75); qG.add(m); return m; });
+  const COLREQ = [1, 1, -1];
+  addAct("quantum", qG, () => ({ p: [0.6, 7.6, 7.2], t: [0, -0.2, 0.4] }), (dt, time) => {
+    const g = S.game;
+    qTiles.forEach((t, idx) => {
+      t.a = damp(t.a, g[idx] < 0 ? Math.PI : 0, REDUCE ? 30 : 7, dt);
+      t.flip.rotation.x = t.a;
+      t.flip.position.y = Math.sin(t.a) * 0.45;
+      t.pl.visible = t.a < Math.PI / 2; t.mi.visible = !t.pl.visible;
+    });
+    for (let i = 0; i < 3; i++) {
+      const p = g[i * 3] * g[i * 3 + 1] * g[i * 3 + 2];
+      rowRules[i].material = p === 1 ? okMat : badMat;
+    }
+    for (let j = 0; j < 3; j++) {
+      const p = g[j] * g[3 + j] * g[6 + j];
+      colRules[j].material = p === COLREQ[j] ? okMat : badMat;
+    }
+    if (!REDUCE) qG.rotation.y = Math.sin(time * 0.2) * 0.12;
+  });
+
+  /* =========================================================
+     ACTE : PERLES (diagramme traditionnel du Lo Shu)
+     ========================================================= */
+  const beadsG = new THREE.Group();
+  (() => {
+    const pearl = gold("#e9b65e", 0.2);
+    const ringMat = reg(new THREE.MeshPhysicalMaterial({ color: "#efe6d2", metalness: 0.2, roughness: 0.2, clearcoat: 1, emissive: new THREE.Color("#fff3dc"), emissiveIntensity: 0.35 }));
+    const thread = reg(new THREE.LineBasicMaterial({ color: 0xd9b46a, opacity: 0.5 }));
+    const sph = new THREE.SphereGeometry(0.17, 32, 16), ring = new THREE.TorusGeometry(0.15, 0.04, 12, 40);
+    const SPc = 2.05;
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+      const v = D.LO[i][j], cx = (j - 1) * SPc, cy = (1 - i) * SPc;
+      let pts = [];
+      if (v === 1) pts = [[cx, cy]];
+      else if (v === 5) { pts = [[cx, cy]]; for (let a = 0; a < 4; a++) { const th = Math.PI / 4 + a * Math.PI / 2; pts.push([cx + 0.55 * Math.cos(th), cy + 0.55 * Math.sin(th)]); } }
+      else { const r = v < 7 ? 0.55 : 0.64; for (let a = 0; a < v; a++) { const th = Math.PI / 2 + a * 2 * Math.PI / v; pts.push([cx + r * Math.cos(th), cy + r * Math.sin(th)]); } }
+      for (const [x, y] of pts) {
+        const m = new THREE.Mesh(v % 2 ? ring : sph, v % 2 ? ringMat : pearl);
+        m.position.set(x, y, 0); beadsG.add(m);
+      }
+      if (pts.length > 1) {
+        const arr = v === 5 ? pts.slice(1).flatMap((p) => [new THREE.Vector3(cx, cy, 0), new THREE.Vector3(p[0], p[1], 0)])
+          : pts.concat([pts[0]]).map((p) => new THREE.Vector3(p[0], p[1], 0));
+        const geo = new THREE.BufferGeometry().setFromPoints(arr);
+        beadsG.add(v === 5 ? new THREE.LineSegments(geo, thread) : new THREE.Line(geo, thread));
+      }
+    }
+    const halo = new THREE.Mesh(new THREE.RingGeometry(4.55, 4.6, 128), glow("#e3b866", 0.5)); beadsG.add(halo);
+    const halo2 = new THREE.Mesh(new THREE.RingGeometry(4.85, 4.86, 128), glow("#e3b866", 0.25)); beadsG.add(halo2);
+  })();
+  addAct("beads", beadsG, () => ({ p: [0, 0.4, 11.2], t: [0, 0, 0] }), (dt, time) => {
+    if (!REDUCE) { beadsG.rotation.y = Math.sin(time * 0.3) * 0.45; beadsG.position.y = Math.sin(time * 0.6) * 0.08; }
+  });
+
+  /* =========================================================
+     ACTE : PLATEAU (théorème de l'équilibre, charges)
+     ========================================================= */
+  const plateG = new THREE.Group();
+  plateG.add(floor(4.8, -1.6));
+  const pivot = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.5, 48), gold("#d9a646", 0.3));
+  pivot.position.y = -0.82; plateG.add(pivot);
+  const tilt = new THREE.Group(); plateG.add(tilt);
+  const slab = new THREE.Mesh(new RoundedBoxGeometry(4.8, 0.14, 4.8, 3, 0.06), obsidian()); slab.position.y = -0.07; tilt.add(slab);
+  const massGeo = new THREE.CylinderGeometry(1, 1, 1, 48); massGeo.translate(0, 0.5, 0);
+  const massMat = reg(new THREE.MeshPhysicalMaterial({ color: "#f2c36d", metalness: 0.85, roughness: 0.32, clearcoat: 0.5, envMapIntensity: 1.6 }));
+  const masses = [];
+  for (let k = 0; k < 16; k++) {
+    const m = new THREE.Mesh(massGeo, massMat); m.visible = false; tilt.add(m);
+    const s = sprite("0", 0.5, { color: "#fff0cc" }); s.visible = false; tilt.add(s);
+    masses.push({ m, s, h: 0.1, r: 0.2, x: 0, z: 0, txt: "" });
+  }
+  const ellG = new THREE.Group(); tilt.add(ellG); ellG.position.y = 0.03;
+  const ellMesh = new THREE.Mesh(new THREE.TorusGeometry(1, 0.02, 8, 120), glow("#ffcf70", 1)); ellMesh.rotation.x = Math.PI / 2; ellG.add(ellMesh);
+  const refCircle = (() => {
+    const pts = []; for (let a = 0; a <= 128; a++) { const t = a / 128 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(t), 0.03, Math.sin(t))); }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const l = new THREE.Line(geo, reg(new THREE.LineDashedMaterial({ color: 0xefe6d2, dashSize: 0.08, gapSize: 0.07, opacity: 0.7 })));
+    l.computeLineDistances(); tilt.add(l); return l;
+  })();
+  const barGeo = new RoundedBoxGeometry(0.55, 0.1, 0.18, 2, 0.04);
+  const barMats = [];
+  const rowBars = [0, 1, 2, 3].map(() => { const mm = glow("#5cc4d1", 1); barMats.push(mm); const b = new THREE.Mesh(barGeo, mm); b.rotation.y = Math.PI / 2; tilt.add(b); return b; });
+  const colBars = [0, 1, 2, 3].map(() => { const mm = glow("#5cc4d1", 1); barMats.push(mm); const b = new THREE.Mesh(barGeo, mm); tilt.add(b); return b; });
+  const SETS = { loshu: D.LO, durer: D.DU, khaj: D.KH, random: D.RND };
+  const ang = { x: 0, z: 0, vx: 0, vz: 0 };
+  const cTeal = new THREE.Color("#5cc4d1"), cEmber = new THREE.Color("#ff6a3a");
+  function eig2(a, b, c) { // [[a,b],[b,c]]
+    const tr = a + c, det = a * c - b * b, d = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+    const l1 = tr / 2 + d, l2 = tr / 2 - d;
+    const th = Math.abs(b) < 1e-12 ? (a >= c ? 0 : Math.PI / 2) : Math.atan2(l1 - a, b);
+    return { l1, l2, th };
+  }
+  addAct("plate", plateG, () => ({ p: [7.6, 7.3, 9.6], t: [0, 0.3, 0] }), (dt) => {
+    const loads = S.mode === "loads";
+    let M, labels;
+    if (loads) { const G = S.loads; M = [G.slice(0, 4), G.slice(4, 8), G.slice(8, 12), G.slice(12, 16)]; }
+    else M = SETS[S.plateSet];
+    const n = M.length, sp = n === 3 ? 1.4 : 1.08, c = (n - 1) / 2;
+    const vmax = loads ? 31.5 : n * n;
+    let mt = 0, sx = 0, sz = 0, jxx = 0, jzz = 0, jxz = 0;
+    for (let k = 0; k < 16; k++) {
+      const it = masses[k];
+      if (k >= n * n) { it.m.visible = it.s.visible = false; continue; }
+      const i = Math.floor(k / n), j = k % n, v = M[i][j];
+      const x = (j - c) * sp, z = (i - c) * sp;
+      it.x = x; it.z = z;
+      const hT = 0.12 + 1.45 * v / vmax, rT = (n === 3 ? 0.2 : 0.15) + (n === 3 ? 0.26 : 0.22) * Math.sqrt(v / vmax);
+      it.h = damp(it.h, hT, 8, dt); it.r = damp(it.r, rT, 8, dt);
+      it.m.visible = true; it.m.position.set(x, 0, z); it.m.scale.set(it.r, it.h, it.r);
+      const txt = loads ? String(v).replace(".", ",") : String(v);
+      if (txt !== it.txt) { it.txt = txt; it.s.material.map = labelTex(txt, { color: "#fff0cc", font: loads ? '500 96px "JetBrains Mono", monospace' : undefined }); it.s.material.needsUpdate = true; }
+      it.s.visible = !loads; it.s.position.set(x, it.h + 0.32, z); it.s.scale.setScalar(0.5);
+      const gx = j - c, gz = i - c;
+      mt += v; sx += v * gx; sz += v * gz; jxx += v * gx * gx; jzz += v * gz * gz; jxz += v * gx * gz;
+    }
+    const cx = sx / mt, cz = sz / mt;
+    // basculement amorti
+    const K = 0.9;
+    const tz = clamp(-cx * K, -0.34, 0.34), tx = clamp(cz * K, -0.34, 0.34);
+    const step = Math.min(dt, 0.05);
+    ang.vz += (24 * (tz - ang.z) - 4.2 * ang.vz) * step; ang.z += ang.vz * step;
+    ang.vx += (24 * (tx - ang.x) - 4.2 * ang.vx) * step; ang.x += ang.vx * step;
+    if (REDUCE) { ang.x = tx; ang.z = tz; }
+    tilt.rotation.set(ang.x, 0, ang.z);
+    // ellipse d'inertie (écarts ×4) contre cercle uniforme
+    let ux = 0, uz = 0, cnt = n * n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { ux += (j - c) * (j - c); uz += (i - c) * (i - c); }
+    const lu = ux / cnt;
+    const e = eig2(jxx / mt, jxz / mt, jzz / mt);
+    const R0 = n === 3 ? 1.85 : 1.9;
+    const a1 = R0 * (1 + 4 * (Math.sqrt(e.l1 / lu) - 1)), a2 = R0 * (1 + 4 * (Math.sqrt(Math.max(e.l2, 1e-6) / lu) - 1));
+    ellG.scale.set(1, 1, 1);
+    ellMesh.scale.set(a1, a2, 1);
+    ellG.rotation.y = -e.th;
+    ellG.position.set(cx * sp, 0.03, cz * sp);
+    refCircle.scale.set(R0, 1, R0);
+    const balanced = Math.abs(cx) < 1e-6 && Math.abs(cz) < 1e-6 && Math.abs(jxz) < 1e-6;
+    ellMesh.material.color.set(balanced ? "#ffcf70" : "#ff7a45");
+    // barres de file (mode charges)
+    const tgt = mt / n;
+    for (let q = 0; q < 4; q++) {
+      const show = loads;
+      rowBars[q].visible = colBars[q].visible = show;
+      if (!show) continue;
+      let rs = 0, cs = 0; for (let t = 0; t < 4; t++) { rs += M[q][t]; cs += M[t][q]; }
+      rowBars[q].position.set(2.62, 0.02, (q - c) * sp); colBars[q].position.set((q - c) * sp, 0.02, 2.62);
+      const fr = Math.min(1, Math.abs(rs - tgt) / (0.12 * tgt)), fc = Math.min(1, Math.abs(cs - tgt) / (0.12 * tgt));
+      rowBars[q].material.color.copy(cTeal).lerp(cEmber, fr);
+      colBars[q].material.color.copy(cTeal).lerp(cEmber, fc);
+    }
+  });
+
+  /* =========================================================
+     ACTE : CUBE (125 masses associatives)
+     ========================================================= */
+  const cubeG = new THREE.Group();
+  const spin = new THREE.Group(); cubeG.add(spin);
+  const cubeMat = reg(new THREE.MeshPhysicalMaterial({ color: "#f0cf8c", metalness: 0.95, roughness: 0.42, envMapIntensity: 1.2 }));
+  const sphereGeo = new THREE.SphereGeometry(1, mobile ? 18 : 28, mobile ? 12 : 18);
+  const inst = new THREE.InstancedMesh(sphereGeo, cubeMat, 125);
+  inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  spin.add(inst);
+  const radii = new Float32Array(125);
+  const SPC = 0.95;
+  const dummy = new THREE.Object3D();
+  const cA = new THREE.Color("#f7e9c6"), cB = new THREE.Color("#d9aa52");
+  const wireGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1, 3));
+  const refSphere = new THREE.LineSegments(wireGeo, reg(new THREE.LineBasicMaterial({ color: 0xefe6d2, opacity: 0.16 })));
+  const ellip = new THREE.LineSegments(wireGeo, reg(new THREE.LineBasicMaterial({ color: 0xffcf70, opacity: 0.55 })));
+  spin.add(refSphere, ellip);
+  function jacobi3(A) {
+    const a = A.map((r) => r.slice()), V = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    for (let sweep = 0; sweep < 30; sweep++) {
+      let off = Math.abs(a[0][1]) + Math.abs(a[0][2]) + Math.abs(a[1][2]);
+      if (off < 1e-9) break;
+      for (const [p, q] of [[0, 1], [0, 2], [1, 2]]) {
+        if (Math.abs(a[p][q]) < 1e-12) continue;
+        const th = 0.5 * Math.atan2(2 * a[p][q], a[q][q] - a[p][p]), c = Math.cos(th), s = Math.sin(th);
+        for (let k = 0; k < 3; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }
+        for (let k = 0; k < 3; k++) { const apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk; }
+        for (let k = 0; k < 3; k++) { const vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq; }
+      }
+    }
+    return { l: [a[0][0], a[1][1], a[2][2]], V };
+  }
+  let cubeKey = "";
+  const R3 = 3.15;
+  function setEllipsoid(arr) {
+    const I = S.tensor3(arr), e = jacobi3(I), mean = (I[0][0] + I[1][1] + I[2][2]) / 3;
+    const ax = e.l.map((l) => R3 * (1 + 6 * (l / mean - 1)));
+    const v1 = new THREE.Vector3(e.V[0][0], e.V[1][0], e.V[2][0]);
+    const v2 = new THREE.Vector3(e.V[0][1], e.V[1][1], e.V[2][1]);
+    const v3 = new THREE.Vector3().crossVectors(v1, v2);
+    const M4 = new THREE.Matrix4().makeBasis(v1, v2, v3);
+    ellip.quaternion.setFromRotationMatrix(M4);
+    ellip.scale.set(ax[0], ax[1], ax[2]);
+    const off = Math.max(Math.abs(I[0][1]), Math.abs(I[0][2]), Math.abs(I[1][2]));
+    ellip.material.color.set(off < 1e-9 ? "#ffcf70" : "#ff7a45");
+  }
+  refSphere.scale.setScalar(R3);
+  addAct("cube", cubeG, () => ({ p: [6.4, 4.6, 8.6], t: [0, 0, 0] }), (dt, time) => {
+    const arr = S.cubeSet === "assoc" ? D.CA : D.CR;
+    if (cubeKey !== S.cubeSet) {
+      cubeKey = S.cubeSet; setEllipsoid(arr);
+      for (let q = 0; q < 125; q++) inst.setColorAt(q, cA.clone().lerp(cB, Math.cbrt(arr[q] / 125)));
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    }
+    let idx = 0;
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) for (let k = 0; k < 5; k++, idx++) {
+      const target = 0.43 * Math.cbrt(arr[idx] / 125);
+      radii[idx] = damp(radii[idx] || target, target, REDUCE ? 30 : 4, dt);
+      dummy.position.set((i - 2) * SPC, (j - 2) * SPC, (k - 2) * SPC);
+      dummy.scale.setScalar(radii[idx]);
+      dummy.updateMatrix(); inst.setMatrixAt(idx, dummy.matrix);
+    }
+    inst.instanceMatrix.needsUpdate = true;
+    if (!REDUCE) { spin.rotation.y = time * 0.32; spin.rotation.x = 0.42 + Math.sin(time * 0.21) * 0.25; spin.rotation.z = Math.sin(time * 0.17) * 0.18; }
+  });
+
+  /* ---------- Caméra, glisser, redimensionnement ---------- */
+  const camPos = new THREE.Vector3(6.6, 6.6, 8.4), camLook = new THREE.Vector3(0, 1.5, 0);
+  const tmpP = new THREE.Vector3(), tmpT = new THREE.Vector3();
+  let yaw = 0, yawV = 0, dragging = false, lastX = 0, px = 0, py = 0;
+  canvas.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; yawV = 0; });
+  window.addEventListener("pointerup", () => { dragging = false; });
+  window.addEventListener("pointercancel", () => { dragging = false; });
+  window.addEventListener("pointermove", (e) => {
+    px = (e.clientX / window.innerWidth - 0.5); py = (e.clientY / window.innerHeight - 0.5);
+    if (!dragging) return;
+    const dx = e.clientX - lastX; lastX = e.clientX;
+    yaw += dx * 0.006; yawV = dx * 0.006;
+  });
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    composer.setSize(w, h);
+    bloom.setSize(Math.round(w / 2), Math.round(h / 2));
+    camera.aspect = w / h;
+    if (w >= 860) camera.setViewOffset(w, h, -w * 0.2, 0, w, h);
+    else camera.setViewOffset(w, h, 0, h * 0.17, w, h);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize); resize();
+
+  const clock = new THREE.Clock();
+  let current = null;
+  function frame() {
+    const raw = clock.getDelta(), dt = Math.min(raw, 0.05), fdt = Math.min(raw, 0.25), time = clock.elapsedTime;
+    // poussière
+    const P = dust.pos;
+    if (!REDUCE) for (let i = 0; i < dust.N; i++) { P[i * 3 + 1] += dust.sp[i] * dt * 0.35; if (P[i * 3 + 1] > 9) P[i * 3 + 1] = -9; }
+    dust.pts.geometry.attributes.position.needsUpdate = true;
+    // actes
+    for (const name in acts) {
+      const A = acts[name], g = A.group, active = S.act === name;
+      if (active && !A.wasActive && A.onEnter) A.onEnter();
+      A.wasActive = active;
+      const ud = g.userData;
+      ud.alpha = REDUCE ? (active ? 1 : 0) : damp(ud.alpha, active ? 1 : 0, active ? 2.4 : 7, fdt);
+      if (ud.alpha < 0.004 && !active) { if (g.visible) { g.visible = false; } continue; }
+      g.visible = true;
+      const e = easeOut(ud.alpha);
+      g.scale.setScalar(0.86 + 0.14 * e);
+      g.position.y = (1 - e) * -0.9;
+      if (Math.abs(ud.alpha - ud.applied) > 0.003) { applyOpacity(g, ud.alpha); ud.applied = ud.alpha; }
+      A.update(fdt, time);
+      if (active) current = A;
+    }
+    // caméra
+    if (current) {
+      const c = current.cam();
+      const w = window.innerWidth, h = window.innerHeight, asp = w / h;
+      const scale = w < 860 ? (asp < 0.75 ? 1.55 : 1.25) : 1;
+      tmpT.set(...c.t); tmpP.set(...c.p).sub(tmpT).multiplyScalar(scale).add(tmpT);
+      camPos.x = damp(camPos.x, tmpP.x, 1.8, fdt); camPos.y = damp(camPos.y, tmpP.y, 1.8, fdt); camPos.z = damp(camPos.z, tmpP.z, 1.8, fdt);
+      camLook.x = damp(camLook.x, tmpT.x, 1.8, fdt); camLook.y = damp(camLook.y, tmpT.y, 1.8, fdt); camLook.z = damp(camLook.z, tmpT.z, 1.8, fdt);
+    }
+    if (!dragging) { yaw += yawV; yawV *= 0.93; }
+    bloom.strength = damp(bloom.strength, S.act === "beads" && S.mode === "finale" ? 0.9 : 0.55, 2, dt);
+    world.rotation.y = yaw;
+    camera.position.set(camPos.x + (REDUCE ? 0 : px * 0.6), camPos.y + (REDUCE ? 0 : -py * 0.4), camPos.z);
+    camera.lookAt(camLook);
+    composer.render();
+    requestAnimationFrame(frame);
+  }
+  S.stageReady = true;
+  document.body.classList.remove("no-webgl");
+  requestAnimationFrame(frame);
+}
+
+main().catch((e) => { console.error(e); document.body.classList.add("no-webgl"); });
+
+</script>
